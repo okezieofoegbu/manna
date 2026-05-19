@@ -1,0 +1,160 @@
+/* Manna — global styles.
+   A still place, not a dashboard. Warm, restful, editorial.
+   The devotional should read like a page of a good book. */
+
+:root {
+  --manna-bg: #f4f3ee;
+  --manna-surface: #ffffff;
+  --manna-ink: #2b2b28;
+  --manna-ink-soft: #5b5b54;
+  --manna-olive: #5b6c3a;
+  --manna-navy: #1f3a5f;
+  --manna-accent: #8b2635;
+  --manna-rule: #dddcd6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: var(--manna-bg);
+  color: var(--manna-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.manna-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+}
+
+/* The quiet header — date and theme, nothing else. */
+.manna-header {
+  text-align: center;
+  margin-bottom: 3.5rem;
+}
+
+.manna-wordmark {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.6rem;
+  font-weight: 600;
+  color: var(--manna-navy);
+  letter-spacing: 0.01em;
+}
+
+.manna-tagline {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  color: var(--manna-olive);
+  font-size: 1.05rem;
+  margin-top: 0.35rem;
+}
+
+.manna-meta {
+  margin-top: 1.5rem;
+  color: var(--manna-ink-soft);
+  font-size: 0.95rem;
+}
+
+.manna-meta .theme {
+  color: var(--manna-navy);
+  font-weight: 600;
+}
+
+/* The devotional section — room to breathe. */
+.manna-devotional {
+  background: var(--manna-surface);
+  border: 1px solid var(--manna-rule);
+  border-radius: 10px;
+  padding: 2.5rem;
+}
+
+.manna-section-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--manna-olive);
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.manna-passage-list {
+  list-style: none;
+}
+
+.manna-passage-list li {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--manna-rule);
+  color: var(--manna-ink);
+}
+
+.manna-passage-list li:last-child {
+  border-bottom: none;
+}
+
+.manna-passage-ref {
+  font-weight: 700;
+  color: var(--manna-navy);
+}
+
+/* The divider — the small daily crossing from Word to work. */
+.manna-divider {
+  height: 1px;
+  background: var(--manna-rule);
+  margin: 3rem 0;
+}
+
+/* The brief — placeholder in v0.1.0. */
+.manna-brief {
+  background: var(--manna-surface);
+  border: 1px dashed var(--manna-rule);
+  border-radius: 10px;
+  padding: 2rem 2.5rem;
+  color: var(--manna-ink-soft);
+}
+
+.manna-note {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--manna-ink-soft);
+}
+
+.manna-note strong {
+  color: var(--manna-ink);
+}
+
+/* Setup state — shown when the database is not yet configured. */
+.manna-setup {
+  background: #fff8e8;
+  border: 1px solid #e8d8a8;
+  border-radius: 10px;
+  padding: 2rem 2.5rem;
+}
+
+.manna-setup h2 {
+  color: var(--manna-accent);
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.manna-setup code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: #f0e8d0;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.manna-footer {
+  text-align: center;
+  margin-top: 4rem;
+  color: var(--manna-ink-soft);
+  font-size: 0.82rem;
+}

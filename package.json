@@ -1,0 +1,22 @@
+{
+  "name": "manna",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Manna — a private morning page. Word before work.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.5.18",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "@supabase/supabase-js": "2.48.1"
+  },
+  "devDependencies": {
+    "eslint": "9.18.0",
+    "eslint-config-next": "15.5.18"
+  }
+}
