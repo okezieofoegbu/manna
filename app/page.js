@@ -14,6 +14,9 @@ import Fums from '@/components/Fums';
 // asks the server-side /api/devotional route to prepare today's devotional —
 // passage-of-the-day, Bible text, and the reflection — then renders it above
 // the (still placeholder) brief.
+// v0.1.2.1: the Reflection component now renders *...* segments as
+// bold-italic. The prompt has not been changed; if a future day's reflection
+// contains no asterisks, this renders identically to plain text.
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +67,26 @@ function PassageText({ text }) {
   );
 }
 
+// v0.1.2.1 — render *...* segments as bold-italic. The devotional engine
+// has been emitting these around short Scripture quotations inside the
+// reflection; the prompt does not yet ask for this, so this renderer just
+// handles it gracefully when it appears. If a paragraph contains no
+// asterisks, this renders identically to plain text.
+function renderInline(text) {
+  const segments = text.split(/(\*[^*]+\*)/g).filter((s) => s !== '');
+  return segments.map((seg, i) => {
+    const m = seg.match(/^\*([^*]+)\*$/);
+    if (m) {
+      return (
+        <strong key={i}>
+          <em>{m[1]}</em>
+        </strong>
+      );
+    }
+    return <span key={i}>{seg}</span>;
+  });
+}
+
 function Reflection({ text }) {
   const paragraphs = String(text)
     .split(/\n\s*\n/)
@@ -72,7 +95,7 @@ function Reflection({ text }) {
   return (
     <div className="manna-reflection">
       {paragraphs.map((p, i) => (
-        <p key={i}>{p}</p>
+        <p key={i}>{renderInline(p)}</p>
       ))}
     </div>
   );
