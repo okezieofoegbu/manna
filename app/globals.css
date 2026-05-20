@@ -251,6 +251,7 @@ body {
   margin-bottom: 1.5rem;
   padding-left: 0.85rem;
   border-left: 2px solid var(--manna-rule);
+  transition: opacity 0.2s ease;
 }
 
 .manna-brief-item:last-child {
@@ -259,6 +260,16 @@ body {
 
 .manna-brief-category[data-category="urgent"] .manna-brief-item {
   border-left-color: #c89888;
+}
+
+/* v0.1.5 — actioned items dim back, leaving the chip and content
+   readable but signaling "handled." We keep the item visible today
+   so the page reflects all of today's brief regardless of state;
+   tomorrow they're gone naturally via the date filter. */
+.manna-brief-item[data-state="done"],
+.manna-brief-item[data-state="delegated"],
+.manna-brief-item[data-state="scheduled"] {
+  opacity: 0.5;
 }
 
 .manna-brief-flag {
@@ -323,6 +334,178 @@ a.manna-brief-subject:hover {
 }
 
 .manna-brief-owner {
+  color: var(--manna-accent);
+}
+
+/* --- v0.1.5 — action controls per brief item ----------------------------- */
+/* Below the meta line of each item. Quiet by design — the brief is for
+   reading, action UI is secondary. */
+
+.manna-actions {
+  margin-top: 0.75rem;
+  padding-top: 0.55rem;
+}
+
+.manna-actions-row {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.manna-actions-row + .manna-actions-row {
+  margin-top: 0.65rem;
+}
+
+/* Inline text-button — primary action trigger */
+.manna-action-btn,
+.manna-action-btn-primary,
+.manna-action-btn-secondary,
+.manna-action-btn-cancel {
+  font-family: var(--manna-sans);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--manna-ink-soft);
+  background: none;
+  border: none;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--manna-rule);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.manna-action-btn:hover:not(:disabled),
+.manna-action-btn-primary:hover:not(:disabled),
+.manna-action-btn-secondary:hover:not(:disabled),
+.manna-action-btn-cancel:hover:not(:disabled) {
+  color: var(--manna-accent);
+  border-bottom-color: var(--manna-accent);
+}
+
+.manna-action-btn[data-expanded="true"] {
+  color: var(--manna-accent);
+  border-bottom-color: var(--manna-accent);
+}
+
+.manna-action-btn-secondary,
+.manna-action-btn-cancel {
+  font-style: italic;
+}
+
+.manna-action-btn-cancel {
+  color: var(--manna-ink-soft);
+  border-bottom-color: transparent;
+}
+
+.manna-action-btn:disabled,
+.manna-action-btn-primary:disabled,
+.manna-action-btn-secondary:disabled,
+.manna-action-btn-cancel:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Expanded panel — sits below the action row */
+.manna-actions-panel {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: var(--manna-surface);
+  border-radius: 4px;
+}
+
+.manna-action-label {
+  display: block;
+  font-family: var(--manna-sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--manna-ink-soft);
+  margin-bottom: 0.5rem;
+}
+
+.manna-action-textarea,
+.manna-action-input,
+.manna-action-select {
+  font-family: var(--manna-sans);
+  font-size: 0.9rem;
+  color: var(--manna-ink);
+  background: var(--manna-paper);
+  border: 1px solid var(--manna-rule);
+  border-radius: 3px;
+  padding: 0.4rem 0.55rem;
+  width: 100%;
+  margin-bottom: 0.7rem;
+}
+
+.manna-action-input {
+  width: auto;
+  margin-bottom: 0;
+}
+
+.manna-action-duration {
+  width: 5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.manna-action-select {
+  width: 100%;
+  appearance: auto;
+}
+
+.manna-action-textarea {
+  resize: vertical;
+  min-height: 2.2rem;
+  font-family: var(--manna-serif);
+  line-height: 1.4;
+}
+
+.manna-action-unit {
+  font-family: var(--manna-sans);
+  font-size: 0.8rem;
+  color: var(--manna-ink-soft);
+}
+
+.manna-action-error {
+  margin-top: 0.7rem;
+  font-family: var(--manna-sans);
+  font-size: 0.8rem;
+  color: var(--manna-urgent);
+  background: var(--manna-urgent-soft);
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+/* State chip — shown when an item is already actioned */
+.manna-action-state {
+  margin-top: 0.75rem;
+}
+
+.manna-action-state-chip {
+  display: inline-block;
+  font-family: var(--manna-sans);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--manna-accent);
+  background: var(--manna-surface);
+  padding: 0.18rem 0.55rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.manna-action-state-chip[data-state="done"] {
+  color: var(--manna-ink-soft);
+}
+
+.manna-action-state-chip[data-state="delegated"] {
+  color: var(--manna-accent);
+}
+
+.manna-action-state-chip[data-state="scheduled"] {
   color: var(--manna-accent);
 }
 
@@ -396,6 +579,12 @@ a.manna-brief-subject:hover {
   }
   .manna-brief-meta {
     font-size: 0.78rem;
+  }
+  .manna-actions-row {
+    gap: 0.75rem;
+  }
+  .manna-actions-panel {
+    padding: 0.7rem 0.8rem;
   }
 }
 

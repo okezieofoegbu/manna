@@ -10,7 +10,9 @@ import {
 import { getTodaysDevotional } from '@/lib/devotional';
 import { ownerTodayLong } from '@/lib/dates';
 import { readTodaysBriefForOwner, groupByCategory } from '@/lib/brief-reads';
+import { listActiveRecipients } from '@/lib/delegate-recipients';
 import Fums from '@/components/Fums';
+import BriefItemActions from '@/components/BriefItemActions';
 
 // Manna's single page.
 //
@@ -32,6 +34,12 @@ import Fums from '@/components/Fums';
 // pattern), reads brief_items via service-role, and renders items grouped
 // by category. Sender display is now cleaned up; empty state is a quiet
 // "nothing this morning" note rather than the prior v0.1.4 placeholder.
+//
+// v0.1.5: each brief item now carries action controls — Done, Delegate,
+// Schedule — rendered by a small client island (components/BriefItemActions).
+// The page still server-renders the items themselves; only the action UI
+// is client. Owner-only as before; reader sees neither the brief nor the
+// recipients list.
 
 export const dynamic = 'force-dynamic';
 
@@ -217,11 +225,12 @@ const CATEGORY_LABELS = {
   fyi: 'For your information',
 };
 
-function BriefItem({ item }) {
+function BriefItem({ item, recipients }) {
   const senderClean = formatSender(item.sender);
   const flagTag = formatFlagTag(item);
+  const stateAttr = item.state || 'new';
   return (
-    <div className="manna-brief-item">
+    <div className="manna-brief-item" data-state={stateAttr}>
       {flagTag ? <span className="manna-brief-flag">{flagTag}</span> : null}
       <div className="manna-brief-synthesis">{item.synthesis}</div>
       <div className="manna-brief-meta">
@@ -252,23 +261,25 @@ function BriefItem({ item }) {
           </>
         ) : null}
       </div>
+      {/* v0.1.5 — Done / Delegate / Schedule controls. Client island. */}
+      <BriefItemActions item={item} recipients={recipients} />
     </div>
   );
 }
 
-function BriefCategory({ category, items }) {
+function BriefCategory({ category, items, recipients }) {
   if (!items || items.length === 0) return null;
   return (
     <div className="manna-brief-category" data-category={category}>
       <div className="manna-brief-cat-label">{CATEGORY_LABELS[category]}</div>
       {items.map((item) => (
-        <BriefItem key={item.id} item={item} />
+        <BriefItem key={item.id} item={item} recipients={recipients} />
       ))}
     </div>
   );
 }
 
-function BriefSection({ groups, hadError }) {
+function BriefSection({ groups, hadError, recipients }) {
   const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
   if (total === 0) {
     return (
@@ -285,7 +296,12 @@ function BriefSection({ groups, hadError }) {
     <section className="manna-brief manna-brief-populated">
       <div className="manna-brief-label">The brief</div>
       {groups.map(([cat, items]) => (
-        <BriefCategory key={cat} category={cat} items={items} />
+        <BriefCategory
+          key={cat}
+          category={cat}
+          items={items}
+          recipients={recipients}
+        />
       ))}
     </section>
   );
@@ -379,12 +395,13 @@ export default async function MannaPage() {
     // Leave devotional null — handled gracefully below.
   }
 
-  // v0.1.4.2 — ensure today's brief exists, then read it. Owner-only;
-  // for the reader role we skip both steps so the brief data never reaches
-  // the reader's browser. The devotional and brief are entirely separate
-  // operations — see PITFALLS §3.
+  // v0.1.4.2 + v0.1.5 — ensure today's brief exists, then read it, and
+  // fetch the delegate recipients list. Owner-only; for the reader role
+  // we skip all of this so the brief data and the recipients table both
+  // stay off the reader's page entirely. See PITFALLS §3.
   let briefGroups = groupByCategory([]);
   let briefError = null;
+  let recipients = [];
   if (user.role === 'owner') {
     const briefGen = await ensureTodaysBriefViaApi();
     briefError = briefGen.error;
@@ -393,6 +410,13 @@ export default async function MannaPage() {
       briefGroups = groupByCategory(items);
     } catch (e) {
       briefError = briefError || e.message;
+    }
+    try {
+      recipients = await listActiveRecipients();
+    } catch (e) {
+      // Non-fatal — the delegate dropdown just shows empty if this fails.
+      // The Delegate button will be disabled (BriefItemActions checks).
+      briefError = briefError || `recipients_load_failed: ${e.message}`;
     }
   }
 
@@ -459,7 +483,11 @@ export default async function MannaPage() {
       {user.role === 'owner' && (
         <>
           <div className="manna-divider" />
-          <BriefSection groups={briefGroups} hadError={Boolean(briefError)} />
+          <BriefSection
+            groups={briefGroups}
+            hadError={Boolean(briefError)}
+            recipients={recipients}
+          />
         </>
       )}
 
