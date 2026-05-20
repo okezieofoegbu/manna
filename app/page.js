@@ -9,6 +9,7 @@ import {
 } from '@/lib/themes';
 import { getTodaysDevotional } from '@/lib/devotional';
 import { ownerTodayLong } from '@/lib/dates';
+import { readTodaysBriefForOwner, groupByCategory } from '@/lib/brief-reads';
 import Fums from '@/components/Fums';
 
 // Manna's single page.
@@ -23,9 +24,14 @@ import Fums from '@/components/Fums';
 // contains no asterisks, this renders identically to plain text.
 //
 // v0.1.3: the page is gated by auth. No session → /login. The brief
-// section (still a placeholder until v0.1.4) renders only for the 'owner'
-// role; 'reader' sees the devotional only. The owner's brief placeholder
-// text now points at v0.1.4, where the Zoho synthesis ships.
+// section renders only for the 'owner' role; 'reader' sees the devotional
+// only — no divider, no placeholder, no hint that anything is being withheld.
+//
+// v0.1.4.2: the brief is live. The owner-only section calls /api/brief to
+// ensure today's brief exists (lazy generate, mirrors the devotional's
+// pattern), reads brief_items via service-role, and renders items grouped
+// by category. Sender display is now cleaned up; empty state is a quiet
+// "nothing this morning" note rather than the prior v0.1.4 placeholder.
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +42,8 @@ async function ensureTodaysDevotionalViaApi() {
   const h = await headers();
   const host = h.get('host');
   if (!host) return { devotional: null, error: 'No host header on request.' };
-
   const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
   const proto = isLocal ? 'http' : 'https';
-
   try {
     const res = await fetch(`${proto}://${host}/api/devotional`, {
       method: 'POST',
@@ -52,6 +56,34 @@ async function ensureTodaysDevotionalViaApi() {
     return { devotional: json.devotional || null, error: null };
   } catch (e) {
     return { devotional: null, error: e.message };
+  }
+}
+
+// v0.1.4.2 — mirror of ensureTodaysDevotionalViaApi for the brief side.
+// Calls /api/brief on the owner's behalf to trigger lazy generation if
+// today's brief is not yet in the DB. Cookies forwarded so the route's
+// auth check passes. Errors are returned, never thrown — the page reads
+// the DB after and renders whatever's there.
+async function ensureTodaysBriefViaApi() {
+  const h = await headers();
+  const host = h.get('host');
+  const cookie = h.get('cookie') || '';
+  if (!host) return { error: 'No host header on request.' };
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+  const proto = isLocal ? 'http' : 'https';
+  try {
+    const res = await fetch(`${proto}://${host}/api/brief`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { cookie },
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { error: json.error || `HTTP ${res.status}` };
+    }
+    return { error: null };
+  } catch (e) {
+    return { error: e.message };
   }
 }
 
@@ -147,6 +179,120 @@ function Shell({ children }) {
   );
 }
 
+// ─── v0.1.4.2 — brief render helpers ────────────────────────────────
+
+// Sender field cleanup. Zoho sometimes returns the sender as " <email@x>"
+// (leading space, empty display name). Strip cleanly and fall back to the
+// bare email when no name is present.
+function formatSender(s) {
+  if (!s) return 'unknown sender';
+  const trimmed = String(s).trim();
+  const m = trimmed.match(/^(.*?)<([^>]+)>$/);
+  if (m) {
+    const name = m[1].trim();
+    const email = m[2].trim();
+    return name || email;
+  }
+  return trimmed;
+}
+
+// Format the system_flag as a small tag. For breach items, try to extract
+// the age (hours) from the synthesis line, which the prompt requires.
+function formatFlagTag(item) {
+  if (item.system_flag === 'investment_no_response_breach') {
+    const m = item.synthesis && item.synthesis.match(/(\d+)\s*hours?/i);
+    if (m) return `${m[1]}h unanswered`;
+    return 'unanswered';
+  }
+  if (item.system_flag === 'regulator_staff_communication') {
+    return 'regulator';
+  }
+  return null;
+}
+
+const CATEGORY_LABELS = {
+  urgent: 'Urgent',
+  schedule: 'To schedule',
+  delegate: 'To delegate',
+  fyi: 'For your information',
+};
+
+function BriefItem({ item }) {
+  const senderClean = formatSender(item.sender);
+  const flagTag = formatFlagTag(item);
+  return (
+    <div className="manna-brief-item">
+      {flagTag ? <span className="manna-brief-flag">{flagTag}</span> : null}
+      <div className="manna-brief-synthesis">{item.synthesis}</div>
+      <div className="manna-brief-meta">
+        {item.source_link ? (
+          <a
+            href={item.source_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="manna-brief-subject"
+          >
+            {item.subject}
+          </a>
+        ) : (
+          <span className="manna-brief-subject">{item.subject}</span>
+        )}
+        <span className="manna-brief-dot"> · </span>
+        <span className="manna-brief-sender">{senderClean}</span>
+        {item.category === 'schedule' && item.time_estimate ? (
+          <>
+            <span className="manna-brief-dot"> · </span>
+            <span className="manna-brief-time">{item.time_estimate} min</span>
+          </>
+        ) : null}
+        {item.category === 'delegate' && item.suggested_owner ? (
+          <>
+            <span className="manna-brief-dot"> · </span>
+            <span className="manna-brief-owner">{item.suggested_owner}</span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function BriefCategory({ category, items }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="manna-brief-category" data-category={category}>
+      <div className="manna-brief-cat-label">{CATEGORY_LABELS[category]}</div>
+      {items.map((item) => (
+        <BriefItem key={item.id} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function BriefSection({ groups, hadError }) {
+  const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
+  if (total === 0) {
+    return (
+      <section className="manna-brief manna-brief-empty">
+        <p className="manna-brief-empty-note">
+          {hadError
+            ? 'The inbox could not be reached this morning.'
+            : 'Nothing in the inbox this morning that needs you.'}
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="manna-brief manna-brief-populated">
+      <div className="manna-brief-label">The brief</div>
+      {groups.map(([cat, items]) => (
+        <BriefCategory key={cat} category={cat} items={items} />
+      ))}
+    </section>
+  );
+}
+
+// ─── page ───────────────────────────────────────────────────────────
+
 export default async function MannaPage() {
   // Not configured — show a calm setup message rather than crashing.
   if (!isConfigured) {
@@ -224,7 +370,6 @@ export default async function MannaPage() {
   // day), then read it. Both steps are tolerant — if the engine is not yet
   // fully configured, the page still renders the theme calmly.
   const { error: genError } = await ensureTodaysDevotionalViaApi();
-
   let devotional = null;
   let morningCount = 0;
   try {
@@ -232,6 +377,23 @@ export default async function MannaPage() {
     morningCount = await getThemeMorningCount(theme.id);
   } catch {
     // Leave devotional null — handled gracefully below.
+  }
+
+  // v0.1.4.2 — ensure today's brief exists, then read it. Owner-only;
+  // for the reader role we skip both steps so the brief data never reaches
+  // the reader's browser. The devotional and brief are entirely separate
+  // operations — see PITFALLS §3.
+  let briefGroups = groupByCategory([]);
+  let briefError = null;
+  if (user.role === 'owner') {
+    const briefGen = await ensureTodaysBriefViaApi();
+    briefError = briefGen.error;
+    try {
+      const items = await readTodaysBriefForOwner(user);
+      briefGroups = groupByCategory(items);
+    } catch (e) {
+      briefError = briefError || e.message;
+    }
   }
 
   const passageById = (id) => passages.find((p) => p.id === id) || null;
@@ -266,9 +428,7 @@ export default async function MannaPage() {
               <PassageText text={devotional.passage_text} />
               <Fums snippet={devotional.passage_fums} />
             </div>
-
             <Reflection text={devotional.reflection} />
-
             <FurtherReading
               links={todaysPassage ? todaysPassage.further_reading : []}
             />
@@ -299,12 +459,7 @@ export default async function MannaPage() {
       {user.role === 'owner' && (
         <>
           <div className="manna-divider" />
-          <section className="manna-brief">
-            <p className="manna-note">
-              <strong>The brief.</strong> The Transworld inbox, synthesized
-              into the few things that need you, arrives in v0.1.4.
-            </p>
-          </section>
+          <BriefSection groups={briefGroups} hadError={Boolean(briefError)} />
         </>
       )}
 

@@ -1,5 +1,6 @@
 /* ===========================================================================
    Manna — global styles
+
    Warm, editorial, restful. A still place, not a dashboard. The devotional
    should read like the page of a good book.
    =========================================================================== */
@@ -11,7 +12,8 @@
   --manna-ink-soft: #6c6457;
   --manna-accent: #8a6a3a;
   --manna-rule: #dddcd6;
-
+  --manna-urgent: #a05545;
+  --manna-urgent-soft: #f8e8e2;
   --manna-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
     "Times New Roman", serif;
   --manna-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -37,6 +39,7 @@ body {
 }
 
 /* --- Layout --------------------------------------------------------------- */
+
 .manna-shell {
   max-width: 40rem;
   margin: 0 auto;
@@ -44,6 +47,7 @@ body {
 }
 
 /* --- Header --------------------------------------------------------------- */
+
 .manna-header {
   text-align: center;
   margin-bottom: 3rem;
@@ -80,6 +84,7 @@ body {
 }
 
 /* --- The devotional ------------------------------------------------------- */
+
 .manna-devotional {
   margin-bottom: 1rem;
 }
@@ -130,6 +135,7 @@ body {
 }
 
 /* --- Further reading ------------------------------------------------------ */
+
 .manna-further {
   margin-top: 2.25rem;
   padding-top: 1.5rem;
@@ -172,6 +178,7 @@ body {
 
 /* --- FUMS (API.Bible tracking) -------------------------------------------- */
 /* Present, as the terms require, but visually out of the way. */
+
 .manna-fums {
   height: 0;
   overflow: hidden;
@@ -179,20 +186,147 @@ body {
 }
 
 /* --- The divider — Word above, work below -------------------------------- */
+
 .manna-divider {
   height: 1px;
   background: var(--manna-rule);
   margin: 3rem 0;
 }
 
-/* --- The brief — placeholder in v0.1.2 ----------------------------------- */
+/* --- The brief — v0.1.4.2 (was placeholder in v0.1.2-v0.1.4) ------------ */
+/* The brief is owner-only; reader never sees this section at all.          */
+
 .manna-brief {
+  /* Base — neutral. No box, no border. The brief is part of the page,
+     not a card pasted onto it. */
+}
+
+.manna-brief-label {
+  font-family: var(--manna-sans);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--manna-accent);
+  margin-bottom: 2rem;
+}
+
+/* Empty state — a quiet line, not a placeholder box. */
+.manna-brief-empty {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.manna-brief-empty-note {
+  font-family: var(--manna-serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--manna-ink-soft);
+  margin: 0;
+}
+
+/* Categories */
+.manna-brief-category {
+  margin-bottom: 2.25rem;
+}
+
+.manna-brief-category:last-child {
+  margin-bottom: 0;
+}
+
+.manna-brief-cat-label {
+  font-family: var(--manna-sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--manna-ink-soft);
+  margin-bottom: 1rem;
+}
+
+.manna-brief-category[data-category="urgent"] .manna-brief-cat-label {
+  color: var(--manna-urgent);
+}
+
+/* Individual brief item */
+.manna-brief-item {
+  margin-bottom: 1.5rem;
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--manna-rule);
+}
+
+.manna-brief-item:last-child {
+  margin-bottom: 0;
+}
+
+.manna-brief-category[data-category="urgent"] .manna-brief-item {
+  border-left-color: #c89888;
+}
+
+.manna-brief-flag {
+  display: inline-block;
+  font-family: var(--manna-sans);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--manna-accent);
   background: var(--manna-surface);
-  border: 1px dashed var(--manna-rule);
-  border-radius: 10px;
-  padding: 2rem 2.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  margin-bottom: 0.45rem;
+}
+
+.manna-brief-category[data-category="urgent"] .manna-brief-flag {
+  color: var(--manna-urgent);
+  background: var(--manna-urgent-soft);
+}
+
+.manna-brief-synthesis {
+  font-family: var(--manna-serif);
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--manna-ink);
+  margin-bottom: 0.4rem;
+}
+
+.manna-brief-meta {
+  font-family: var(--manna-sans);
+  font-size: 0.82rem;
+  color: var(--manna-ink-soft);
+  line-height: 1.4;
+}
+
+.manna-brief-subject {
   color: var(--manna-ink-soft);
 }
+
+a.manna-brief-subject {
+  color: var(--manna-ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+a.manna-brief-subject:hover {
+  color: var(--manna-ink);
+  border-bottom-color: var(--manna-rule);
+}
+
+.manna-brief-dot {
+  color: var(--manna-rule);
+}
+
+.manna-brief-sender {
+  color: var(--manna-ink-soft);
+}
+
+.manna-brief-time {
+  color: var(--manna-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.manna-brief-owner {
+  color: var(--manna-accent);
+}
+
+/* --- General prose note (used by setup pages and elsewhere) ------------- */
 
 .manna-note {
   font-size: 0.95rem;
@@ -205,6 +339,7 @@ body {
 }
 
 /* --- Setup / pending states ---------------------------------------------- */
+
 .manna-setup {
   background: #fff8e8;
   border: 1px solid #e8d8a8;
@@ -239,6 +374,7 @@ body {
 }
 
 /* --- Footer --------------------------------------------------------------- */
+
 .manna-footer {
   text-align: center;
   margin-top: 4rem;
@@ -247,6 +383,7 @@ body {
 }
 
 /* --- Small screens -------------------------------------------------------- */
+
 @media (max-width: 480px) {
   .manna-shell {
     padding: 2.5rem 1.25rem 3rem;
@@ -256,6 +393,9 @@ body {
   }
   .manna-passage-list {
     columns: 1;
+  }
+  .manna-brief-meta {
+    font-size: 0.78rem;
   }
 }
 
