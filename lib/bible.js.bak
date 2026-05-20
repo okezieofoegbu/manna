@@ -1,0 +1,200 @@
+// =============================================================================
+// Manna — Bible text (API.Bible)
+// =============================================================================
+// Supplies the passage text for the day's devotional.
+//
+// Source:        API.Bible (American Bible Society), free Starter tier.
+// Translations:  NKJV (primary) -> NLT -> NIV, with the public-domain
+//                World English Bible (WEB) wired as the ultimate fallback so
+//                the engine never breaks on a translation that is not granted.
+// FUMS:          API.Bible requires a Fair Use Management System tracking
+//                snippet to be rendered on any page that shows verse text.
+//                Every response carries it; we capture and store it so the
+//                page can render it. (See PITFALLS.md Section 4.)
+//
+// Bible IDs are resolved at runtime from the /bibles endpoint and cached for
+// the life of the process — no manual ID configuration is needed beyond the
+// API key. See STATE_OF_APP.md Section 8b.
+// =============================================================================
+
+const API_BASE = 'https://api.scripture.api.bible/v1';
+
+// The translation preference order. The engine walks this list and uses the
+// first one that is available and returns the passage successfully.
+export const TRANSLATION_PREFERENCE = [
+  { abbr: 'NKJV', label: 'New King James Version', match: /new king james/i },
+  { abbr: 'NLT', label: 'New Living Translation', match: /new living/i },
+  { abbr: 'NIV', label: 'New International Version', match: /new international/i },
+  { abbr: 'WEB', label: 'World English Bible', match: /world english bible/i },
+];
+
+// USFM book codes — the full 66-book canon, so future themes are covered too.
+const BOOK_CODES = {
+  genesis: 'GEN', exodus: 'EXO', leviticus: 'LEV', numbers: 'NUM',
+  deuteronomy: 'DEU', joshua: 'JOS', judges: 'JDG', ruth: 'RUT',
+  '1 samuel': '1SA', '2 samuel': '2SA', '1 kings': '1KI', '2 kings': '2KI',
+  '1 chronicles': '1CH', '2 chronicles': '2CH', ezra: 'EZR', nehemiah: 'NEH',
+  esther: 'EST', job: 'JOB', psalm: 'PSA', psalms: 'PSA', proverbs: 'PRO',
+  ecclesiastes: 'ECC', 'song of solomon': 'SNG', 'song of songs': 'SNG',
+  isaiah: 'ISA', jeremiah: 'JER', lamentations: 'LAM', ezekiel: 'EZK',
+  daniel: 'DAN', hosea: 'HOS', joel: 'JOL', amos: 'AMO', obadiah: 'OBA',
+  jonah: 'JON', micah: 'MIC', nahum: 'NAM', habakkuk: 'HAB',
+  zephaniah: 'ZEP', haggai: 'HAG', zechariah: 'ZEC', malachi: 'MAL',
+  matthew: 'MAT', mark: 'MRK', luke: 'LUK', john: 'JHN', acts: 'ACT',
+  romans: 'ROM', '1 corinthians': '1CO', '2 corinthians': '2CO',
+  galatians: 'GAL', ephesians: 'EPH', philippians: 'PHP', colossians: 'COL',
+  '1 thessalonians': '1TH', '2 thessalonians': '2TH', '1 timothy': '1TI',
+  '2 timothy': '2TI', titus: 'TIT', philemon: 'PHM', hebrews: 'HEB',
+  james: 'JAS', '1 peter': '1PE', '2 peter': '2PE', '1 john': '1JN',
+  '2 john': '2JN', '3 john': '3JN', jude: 'JUD', revelation: 'REV',
+};
+
+// --- Reference parsing -------------------------------------------------------
+// Turns a human reference ("John 15:1-11", "Psalm 91:1", "1 John 2:24-28")
+// into an API.Bible passage id ("JHN.15.1-JHN.15.11", "PSA.91.1").
+export function referenceToPassageId(reference) {
+  const m = String(reference)
+    .trim()
+    .match(/^(\d?\s*[A-Za-z][A-Za-z\s]*?)\s+(\d+):(\d+)(?:\s*-\s*(\d+))?$/);
+  if (!m) {
+    throw new Error('Could not parse Scripture reference: "' + reference + '"');
+  }
+  const bookName = m[1].trim().toLowerCase().replace(/\s+/g, ' ');
+  const chapter = m[2];
+  const verseStart = m[3];
+  const verseEnd = m[4];
+
+  const code = BOOK_CODES[bookName];
+  if (!code) {
+    throw new Error('Unknown book in reference: "' + reference + '"');
+  }
+  const start = `${code}.${chapter}.${verseStart}`;
+  if (verseEnd) {
+    return `${start}-${code}.${chapter}.${verseEnd}`;
+  }
+  return start;
+}
+
+// --- Bible ID resolution -----------------------------------------------------
+let _bibleIdCache = null; // { NKJV: 'id', NLT: 'id', ... } — process lifetime.
+
+function apiKey() {
+  const key = process.env.BIBLE_API_KEY;
+  if (!key) {
+    throw new Error(
+      'BIBLE_API_KEY is not set. Add your API.Bible key to .env.local ' +
+        '(server-only). See INSTRUCTIONS.md Section 5.'
+    );
+  }
+  return key;
+}
+
+async function apiBibleFetch(path) {
+  const res = await fetch(API_BASE + path, {
+    headers: { 'api-key': apiKey(), accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    const err = new Error(
+      'API.Bible request failed (' + res.status + ') for ' + path +
+        (body ? ' — ' + body.slice(0, 200) : '')
+    );
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+// Resolves the Bible id for each preferred translation, by querying /bibles
+// once and matching on abbreviation / name. Cached for the process lifetime.
+export async function resolveBibleIds() {
+  if (_bibleIdCache) return _bibleIdCache;
+
+  const json = await apiBibleFetch('/bibles?language=eng');
+  const bibles = Array.isArray(json.data) ? json.data : [];
+
+  const resolved = {};
+  for (const pref of TRANSLATION_PREFERENCE) {
+    const hit = bibles.find((b) => {
+      const abbr = (b.abbreviation || '').toUpperCase();
+      const abbrLocal = (b.abbreviationLocal || '').toUpperCase();
+      const name = b.name || b.nameLocal || '';
+      return (
+        abbr === pref.abbr ||
+        abbrLocal === pref.abbr ||
+        pref.match.test(name)
+      );
+    });
+    if (hit) resolved[pref.abbr] = hit.id;
+  }
+
+  if (Object.keys(resolved).length === 0) {
+    throw new Error(
+      'API.Bible returned no usable English Bibles. Check the API key and ' +
+        'the Bibles granted to your account.'
+    );
+  }
+  _bibleIdCache = resolved;
+  return resolved;
+}
+
+// --- Passage fetch -----------------------------------------------------------
+// Fetches the passage text, walking the translation preference order and
+// using the first translation that succeeds. WEB is the ultimate fallback.
+//
+// Returns:
+//   { reference, text, translationAbbr, translationLabel, fums, fumsId,
+//     bibleId }
+export async function fetchPassage(reference) {
+  const passageId = referenceToPassageId(reference);
+  const ids = await resolveBibleIds();
+
+  const query =
+    '?content-type=text' +
+    '&include-notes=false' +
+    '&include-titles=false' +
+    '&include-chapter-numbers=false' +
+    '&include-verse-numbers=true' +
+    '&include-verse-spans=false';
+
+  let lastError = null;
+
+  for (const pref of TRANSLATION_PREFERENCE) {
+    const bibleId = ids[pref.abbr];
+    if (!bibleId) continue; // not granted on this account — skip to next
+
+    try {
+      const json = await apiBibleFetch(
+        `/bibles/${bibleId}/passages/${passageId}${query}`
+      );
+      const data = json.data || {};
+      const meta = json.meta || {};
+      const text = (data.content || '').replace(/\s+/g, ' ').trim();
+      if (!text) {
+        lastError = new Error('Empty passage text from ' + pref.abbr);
+        continue;
+      }
+      return {
+        reference,
+        text,
+        translationAbbr: pref.abbr,
+        translationLabel: pref.label,
+        // The ready-made FUMS snippet from API.Bible — rendered verbatim on
+        // the page. Prefer the JS include; fall back to the noscript pixel.
+        fums: meta.fumsJsInclude || meta.fumsNoScript || '',
+        fumsId: meta.fumsId || '',
+        bibleId,
+      };
+    } catch (e) {
+      lastError = e;
+      // 4xx for this translation (e.g. not granted, passage not found here)
+      // — fall through to the next translation in the preference order.
+    }
+  }
+
+  throw new Error(
+    'Could not fetch "' + reference + '" from any configured translation. ' +
+      'Last error: ' + (lastError ? lastError.message : 'unknown')
+  );
+}

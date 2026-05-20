@@ -1,57 +1,195 @@
+import { headers } from 'next/headers';
 import { isConfigured } from '@/lib/supabase';
-import { getActiveTheme, getThemePassages } from '@/lib/themes';
+import {
+  getActiveTheme,
+  getThemePassages,
+  getThemeMorningCount,
+} from '@/lib/themes';
+import { getTodaysDevotional } from '@/lib/devotional';
+import { ownerTodayLong } from '@/lib/dates';
+import Fums from '@/components/Fums';
 
 // Manna's single page.
-// v0.1.0: shows the quiet header, the active theme and its anchor
-// passages (read from Supabase), the divider, and a placeholder brief.
-// The devotional reflection and the real email brief arrive in later versions.
+// v0.1.2: the devotional engine. On the first load of a new day the page
+// asks the server-side /api/devotional route to prepare today's devotional —
+// passage-of-the-day, Bible text, and the reflection — then renders it above
+// the (still placeholder) brief.
 
 export const dynamic = 'force-dynamic';
 
-function todayLong() {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+// Ask our own server-side API route to ensure today's devotional exists.
+// Generation runs entirely server-side; the Anthropic and Bible keys never
+// reach the browser. Returns { devotional, error }.
+async function ensureTodaysDevotionalViaApi() {
+  const h = await headers();
+  const host = h.get('host');
+  if (!host) return { devotional: null, error: 'No host header on request.' };
+
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+  const proto = isLocal ? 'http' : 'https';
+
+  try {
+    const res = await fetch(`${proto}://${host}/api/devotional`, {
+      method: 'POST',
+      cache: 'no-store',
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.ok) {
+      return { devotional: null, error: json.error || `HTTP ${res.status}` };
+    }
+    return { devotional: json.devotional || null, error: null };
+  } catch (e) {
+    return { devotional: null, error: e.message };
+  }
+}
+
+// Render the stored passage text. API.Bible text mode returns verse numbers
+// in brackets, e.g. "[1] ... [2] ..." — shown here as small superscripts.
+function PassageText({ text }) {
+  const parts = String(text).split(/(\[\d+\])/g);
+  return (
+    <p className="manna-passage-text">
+      {parts.map((part, i) => {
+        const m = part.match(/^\[(\d+)\]$/);
+        if (m) {
+          return (
+            <sup key={i} className="manna-verse-num">
+              {m[1]}
+            </sup>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </p>
+  );
+}
+
+function Reflection({ text }) {
+  const paragraphs = String(text)
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return (
+    <div className="manna-reflection">
+      {paragraphs.map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+    </div>
+  );
+}
+
+function FurtherReading({ links }) {
+  if (!Array.isArray(links) || links.length === 0) return null;
+  return (
+    <div className="manna-further">
+      <div className="manna-further-label">For deeper study</div>
+      <ul>
+        {links.map((link, i) => (
+          <li key={i}>
+            {link.url ? (
+              <a href={link.url} target="_blank" rel="noopener noreferrer">
+                {link.title}
+              </a>
+            ) : (
+              <span>{link.title}</span>
+            )}
+            {link.author ? (
+              <span className="manna-further-author"> — {link.author}</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Shell({ children }) {
+  return (
+    <main className="manna-shell">
+      <header className="manna-header">
+        <div className="manna-wordmark">Manna</div>
+        <div className="manna-tagline">Word before work.</div>
+      </header>
+      {children}
+    </main>
+  );
 }
 
 export default async function MannaPage() {
-  // If the environment is not configured yet, show a calm setup message
-  // rather than crashing.
+  // Not configured — show a calm setup message rather than crashing.
   if (!isConfigured) {
     return (
-      <main className="manna-shell">
-        <header className="manna-header">
-          <div className="manna-wordmark">Manna</div>
-          <div className="manna-tagline">Word before work.</div>
-        </header>
+      <Shell>
         <section className="manna-setup">
           <h2>Manna is not configured yet</h2>
           <p className="manna-note">
             Copy <code>.env.local.example</code> to <code>.env.local</code> and
-            fill in your Supabase URL and anon key, then restart the dev server.
-            Full steps are in <code>INSTRUCTIONS.md</code>.
+            fill in your Supabase URL and anon key, then restart the dev
+            server. See <code>INSTRUCTIONS.md</code>.
           </p>
         </section>
-      </main>
+      </Shell>
     );
   }
 
-  // Configured — load the active theme and its passages.
+  // Load the theme library.
   let theme = null;
   let passages = [];
   let loadError = null;
-
   try {
     theme = await getActiveTheme();
-    if (theme) {
-      passages = await getThemePassages(theme.id);
-    }
-  } catch (err) {
-    loadError = err.message;
+    if (theme) passages = await getThemePassages(theme.id);
+  } catch (e) {
+    loadError = e.message;
   }
+
+  if (loadError) {
+    return (
+      <Shell>
+        <section className="manna-setup">
+          <h2>Could not load the theme</h2>
+          <p className="manna-note">{loadError}</p>
+        </section>
+      </Shell>
+    );
+  }
+
+  if (!theme) {
+    return (
+      <Shell>
+        <section className="manna-setup">
+          <h2>No active theme found</h2>
+          <p className="manna-note">
+            The schema is applied but no theme is seeded and active. Run the
+            seed SQL in <code>DB_SCHEMA.md</code>.
+          </p>
+        </section>
+      </Shell>
+    );
+  }
+
+  // Ensure today's devotional exists (generates on the first load of a new
+  // day), then read it. Both steps are tolerant — if the engine is not yet
+  // fully configured, the page still renders the theme calmly.
+  const { error: genError } = await ensureTodaysDevotionalViaApi();
+
+  let devotional = null;
+  let morningCount = 0;
+  try {
+    devotional = await getTodaysDevotional();
+    morningCount = await getThemeMorningCount(theme.id);
+  } catch {
+    // Leave devotional null — handled gracefully below.
+  }
+
+  const passageById = (id) => passages.find((p) => p.id === id) || null;
+  const todaysPassage = devotional ? passageById(devotional.passage_id) : null;
+
+  // The header theme line. Quiet — date and theme only, never the lens.
+  const themeLine =
+    devotional && morningCount > 0
+      ? `${theme.name} — morning ${morningCount}`
+      : theme.name;
 
   return (
     <main className="manna-shell">
@@ -59,68 +197,64 @@ export default async function MannaPage() {
         <div className="manna-wordmark">Manna</div>
         <div className="manna-tagline">Word before work.</div>
         <div className="manna-meta">
-          {todayLong()}
-          {theme && (
-            <>
-              {' · '}
-              <span className="theme">{theme.name}</span>
-            </>
-          )}
+          <span className="manna-date">{ownerTodayLong()}</span>
+          <span className="manna-dot">·</span>
+          <span className="manna-theme">{themeLine}</span>
         </div>
       </header>
 
+      {/* The devotional — above the fold, room to breathe. */}
       <section className="manna-devotional">
-        <div className="manna-section-label">The devotional</div>
-
-        {loadError && (
-          <p className="manna-note">
-            <strong>Could not load the theme.</strong> {loadError} — check that
-            the schema has been applied and the theme seeded. See{' '}
-            <code>INSTRUCTIONS.md</code>.
-          </p>
-        )}
-
-        {!loadError && !theme && (
-          <p className="manna-note">
-            <strong>No active theme found.</strong> Run the seed SQL from{' '}
-            <code>DB_SCHEMA.md</code> to load the <em>abiding</em> theme, then
-            refresh.
-          </p>
-        )}
-
-        {!loadError && theme && (
+        {devotional ? (
           <>
-            <p className="manna-note" style={{ marginBottom: '1.5rem' }}>
-              {theme.description}
+            <div className="manna-passage">
+              <div className="manna-passage-ref">
+                {todaysPassage ? todaysPassage.reference : ''}
+              </div>
+              <PassageText text={devotional.passage_text} />
+              <Fums snippet={devotional.passage_fums} />
+            </div>
+
+            <Reflection text={devotional.reflection} />
+
+            <FurtherReading
+              links={todaysPassage ? todaysPassage.further_reading : []}
+            />
+          </>
+        ) : (
+          <div className="manna-setup manna-devotional-pending">
+            <h2>This morning&rsquo;s devotional is not ready</h2>
+            <p className="manna-note">
+              The theme <strong>{theme.name}</strong> is set, with{' '}
+              {passages.length} anchor passages. The devotional engine could
+              not prepare today&rsquo;s reading
+              {genError ? <> — {genError}</> : null}. Check that{' '}
+              <code>ANTHROPIC_API_KEY</code>, <code>BIBLE_API_KEY</code>, and{' '}
+              <code>SUPABASE_SERVICE_ROLE_KEY</code> are set in{' '}
+              <code>.env.local</code>, then reload. See{' '}
+              <code>INSTRUCTIONS.md</code>.
             </p>
-            <div className="manna-section-label">Anchor passages</div>
             <ul className="manna-passage-list">
-              {passages.map((pasg) => (
-                <li key={pasg.id}>
-                  <span className="manna-passage-ref">{pasg.reference}</span>
-                </li>
+              {passages.map((p) => (
+                <li key={p.id}>{p.reference}</li>
               ))}
             </ul>
-            <p className="manna-note" style={{ marginTop: '1.5rem' }}>
-              In v0.1.0 Manna shows the theme and its passages. The daily
-              passage selection, the Bible text, and the written reflection
-              arrive in v0.1.2.
-            </p>
-          </>
+          </div>
         )}
       </section>
 
+      {/* The deliberate break — Word above, work below. */}
       <div className="manna-divider" />
 
+      {/* The brief — placeholder until v0.1.3. */}
       <section className="manna-brief">
-        <div className="manna-section-label">The day&apos;s brief</div>
         <p className="manna-note">
-          The Transworld brief will appear here. The Zoho Mail integration and
-          email synthesis arrive in v0.1.3. Word first; work second.
+          <strong>The brief.</strong> The Transworld inbox, synthesized into
+          the few things that need you, arrives in v0.1.3.
         </p>
       </section>
 
-      <footer className="manna-footer">Manna v0.1.0</footer>
+      <footer className="manna-footer">Manna · Word before work.</footer>
     </main>
   );
 }

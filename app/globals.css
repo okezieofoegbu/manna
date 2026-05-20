@@ -1,117 +1,191 @@
-/* Manna — global styles.
-   A still place, not a dashboard. Warm, restful, editorial.
-   The devotional should read like a page of a good book. */
+/* ===========================================================================
+   Manna — global styles
+   Warm, editorial, restful. A still place, not a dashboard. The devotional
+   should read like the page of a good book.
+   =========================================================================== */
 
 :root {
-  --manna-bg: #f4f3ee;
-  --manna-surface: #ffffff;
-  --manna-ink: #2b2b28;
-  --manna-ink-soft: #5b5b54;
-  --manna-olive: #5b6c3a;
-  --manna-navy: #1f3a5f;
-  --manna-accent: #8b2635;
+  --manna-paper: #faf6ee;
+  --manna-surface: #f4efe3;
+  --manna-ink: #2c2822;
+  --manna-ink-soft: #6c6457;
+  --manna-accent: #8a6a3a;
   --manna-rule: #dddcd6;
+
+  --manna-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+  --manna-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
 }
 
-html, body {
-  background: var(--manna-bg);
+body {
+  background: var(--manna-paper);
   color: var(--manna-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--manna-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* --- Layout --------------------------------------------------------------- */
 .manna-shell {
-  max-width: 720px;
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 4rem 1.5rem 6rem;
+  padding: 3.5rem 1.75rem 4rem;
 }
 
-/* The quiet header — date and theme, nothing else. */
+/* --- Header --------------------------------------------------------------- */
 .manna-header {
   text-align: center;
-  margin-bottom: 3.5rem;
+  margin-bottom: 3rem;
 }
 
 .manna-wordmark {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 2.6rem;
-  font-weight: 600;
-  color: var(--manna-navy);
-  letter-spacing: 0.01em;
+  font-family: var(--manna-serif);
+  font-size: 2rem;
+  letter-spacing: 0.02em;
+  color: var(--manna-ink);
 }
 
 .manna-tagline {
-  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.9rem;
   font-style: italic;
-  color: var(--manna-olive);
-  font-size: 1.05rem;
-  margin-top: 0.35rem;
+  color: var(--manna-ink-soft);
+  margin-top: 0.25rem;
 }
 
 .manna-meta {
   margin-top: 1.5rem;
+  font-size: 0.85rem;
   color: var(--manna-ink-soft);
-  font-size: 0.95rem;
+  letter-spacing: 0.01em;
 }
 
-.manna-meta .theme {
-  color: var(--manna-navy);
-  font-weight: 600;
+.manna-dot {
+  margin: 0 0.5rem;
+  color: var(--manna-rule);
 }
 
-/* The devotional section — room to breathe. */
+.manna-theme {
+  color: var(--manna-accent);
+}
+
+/* --- The devotional ------------------------------------------------------- */
 .manna-devotional {
-  background: var(--manna-surface);
-  border: 1px solid var(--manna-rule);
-  border-radius: 10px;
-  padding: 2.5rem;
-}
-
-.manna-section-label {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.72rem;
-  color: var(--manna-olive);
-  font-weight: 700;
   margin-bottom: 1rem;
 }
 
-.manna-passage-list {
-  list-style: none;
-}
-
-.manna-passage-list li {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.1rem;
-  line-height: 1.7;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--manna-rule);
-  color: var(--manna-ink);
-}
-
-.manna-passage-list li:last-child {
-  border-bottom: none;
+.manna-passage {
+  margin-bottom: 2.25rem;
 }
 
 .manna-passage-ref {
-  font-weight: 700;
-  color: var(--manna-navy);
+  font-family: var(--manna-sans);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--manna-accent);
+  margin-bottom: 0.85rem;
 }
 
-/* The divider — the small daily crossing from Word to work. */
+.manna-passage-text {
+  font-family: var(--manna-serif);
+  font-size: 1.2rem;
+  line-height: 1.85;
+  color: var(--manna-ink);
+  margin: 0;
+}
+
+.manna-verse-num {
+  font-family: var(--manna-sans);
+  font-size: 0.62em;
+  color: var(--manna-accent);
+  margin: 0 0.25em 0 0.05em;
+  vertical-align: 0.45em;
+  font-weight: 600;
+}
+
+.manna-reflection {
+  font-family: var(--manna-serif);
+  font-size: 1.08rem;
+  line-height: 1.8;
+  color: var(--manna-ink);
+}
+
+.manna-reflection p {
+  margin: 0 0 1.25rem;
+}
+
+.manna-reflection p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Further reading ------------------------------------------------------ */
+.manna-further {
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--manna-rule);
+}
+
+.manna-further-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--manna-ink-soft);
+  margin-bottom: 0.75rem;
+}
+
+.manna-further ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.manna-further li {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.manna-further a {
+  color: var(--manna-accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(138, 106, 58, 0.3);
+}
+
+.manna-further a:hover {
+  border-bottom-color: var(--manna-accent);
+}
+
+.manna-further-author {
+  color: var(--manna-ink-soft);
+}
+
+/* --- FUMS (API.Bible tracking) -------------------------------------------- */
+/* Present, as the terms require, but visually out of the way. */
+.manna-fums {
+  height: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+
+/* --- The divider — Word above, work below -------------------------------- */
 .manna-divider {
   height: 1px;
   background: var(--manna-rule);
   margin: 3rem 0;
 }
 
-/* The brief — placeholder in v0.1.0. */
+/* --- The brief — placeholder in v0.1.2 ----------------------------------- */
 .manna-brief {
   background: var(--manna-surface);
   border: 1px dashed var(--manna-rule);
@@ -130,7 +204,7 @@ html, body {
   color: var(--manna-ink);
 }
 
-/* Setup state — shown when the database is not yet configured. */
+/* --- Setup / pending states ---------------------------------------------- */
 .manna-setup {
   background: #fff8e8;
   border: 1px solid #e8d8a8;
@@ -141,7 +215,19 @@ html, body {
 .manna-setup h2 {
   color: var(--manna-accent);
   font-size: 1.1rem;
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.manna-devotional-pending {
+  margin-bottom: 0;
+}
+
+.manna-passage-list {
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+  columns: 2;
+  font-size: 0.9rem;
+  color: var(--manna-ink-soft);
 }
 
 .manna-setup code {
@@ -152,9 +238,23 @@ html, body {
   font-size: 0.9em;
 }
 
+/* --- Footer --------------------------------------------------------------- */
 .manna-footer {
   text-align: center;
   margin-top: 4rem;
   color: var(--manna-ink-soft);
   font-size: 0.82rem;
+}
+
+/* --- Small screens -------------------------------------------------------- */
+@media (max-width: 480px) {
+  .manna-shell {
+    padding: 2.5rem 1.25rem 3rem;
+  }
+  .manna-passage-text {
+    font-size: 1.12rem;
+  }
+  .manna-passage-list {
+    columns: 1;
+  }
 }

@@ -1,6 +1,8 @@
 # Components
 
-Reserved for shared UI components from v0.1.2 onward
-(the devotional block, the brief item, the action buttons).
+Shared UI components.
 
-Empty in v0.1.0.
+- `Fums.js` — renders API.Bible's FUMS tracking snippet (v0.1.2).
+
+The devotional and passage rendering currently lives inline in `app/page.js`;
+brief items and action buttons will move here from v0.1.3 onward.
