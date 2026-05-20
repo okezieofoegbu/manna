@@ -258,3 +258,30 @@ body {
     columns: 1;
   }
 }
+
+/* =============================================================================
+   v0.1.3 — logout link in the footer
+   ============================================================================= */
+
+.manna-logout-form {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.manna-logout {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  opacity: 0.55;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  margin: 0;
+}
+
+.manna-logout:hover {
+  opacity: 1;
+}

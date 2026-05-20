@@ -3,8 +3,10 @@ import './globals.css';
 export const metadata = {
   title: 'Manna',
   description: 'Word before work. A private morning page.',
-  // No-index headers while the page is publicly deployed without auth.
-  // Remove once the auth gate is in place (v0.1.6).
+  // No-index headers remain in place. The auth gate (v0.1.3) keeps casual
+  // visitors out of the rendered page, but we still don't want this URL
+  // indexed by search engines. Remove these once a custom domain and full
+  // RLS audit ship in v0.1.7.
   robots: {
     index: false,
     follow: false,

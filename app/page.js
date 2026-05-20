@@ -1,5 +1,7 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { isConfigured } from '@/lib/supabase';
+import { getCurrentUser, isAuthConfigured } from '@/lib/auth';
 import {
   getActiveTheme,
   getThemePassages,
@@ -10,13 +12,20 @@ import { ownerTodayLong } from '@/lib/dates';
 import Fums from '@/components/Fums';
 
 // Manna's single page.
+//
 // v0.1.2: the devotional engine. On the first load of a new day the page
 // asks the server-side /api/devotional route to prepare today's devotional —
 // passage-of-the-day, Bible text, and the reflection — then renders it above
 // the (still placeholder) brief.
+//
 // v0.1.2.1: the Reflection component now renders *...* segments as
 // bold-italic. The prompt has not been changed; if a future day's reflection
 // contains no asterisks, this renders identically to plain text.
+//
+// v0.1.3: the page is gated by auth. No session → /login. The brief
+// section (still a placeholder until v0.1.4) renders only for the 'owner'
+// role; 'reader' sees the devotional only. The owner's brief placeholder
+// text now points at v0.1.4, where the Zoho synthesis ships.
 
 export const dynamic = 'force-dynamic';
 
@@ -155,6 +164,26 @@ export default async function MannaPage() {
     );
   }
 
+  // v0.1.3 — auth not configured: friendly setup message.
+  if (!isAuthConfigured()) {
+    return (
+      <Shell>
+        <section className="manna-setup">
+          <h2>Auth is not configured yet</h2>
+          <p className="manna-note">
+            <code>SESSION_SECRET</code> is not set. Generate one and add it to{' '}
+            <code>.env.local</code> (and to Vercel for production). See the
+            v0.1.3 README.
+          </p>
+        </section>
+      </Shell>
+    );
+  }
+
+  // v0.1.3 — auth gate. No session → /login.
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+
   // Load the theme library.
   let theme = null;
   let passages = [];
@@ -266,18 +295,26 @@ export default async function MannaPage() {
         )}
       </section>
 
-      {/* The deliberate break — Word above, work below. */}
-      <div className="manna-divider" />
+      {/* v0.1.3 — the brief is owner-only. Reader sees the devotional alone. */}
+      {user.role === 'owner' && (
+        <>
+          <div className="manna-divider" />
+          <section className="manna-brief">
+            <p className="manna-note">
+              <strong>The brief.</strong> The Transworld inbox, synthesized
+              into the few things that need you, arrives in v0.1.4.
+            </p>
+          </section>
+        </>
+      )}
 
-      {/* The brief — placeholder until v0.1.3. */}
-      <section className="manna-brief">
-        <p className="manna-note">
-          <strong>The brief.</strong> The Transworld inbox, synthesized into
-          the few things that need you, arrives in v0.1.3.
-        </p>
-      </section>
-
-      <footer className="manna-footer">Manna · Word before work.</footer>
+      <footer className="manna-footer">
+        <span>Manna · Word before work.</span>
+        {' · '}
+        <form action="/api/auth/logout" method="POST" className="manna-logout-form">
+          <button type="submit" className="manna-logout">Sign out</button>
+        </form>
+      </footer>
     </main>
   );
 }
