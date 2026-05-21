@@ -1,6 +1,5 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { isConfigured } from '@/lib/supabase';
 import { getCurrentUser, isAuthConfigured } from '@/lib/auth';
 import {
@@ -546,15 +545,6 @@ export default async function MannaPage() {
             label="The Vitalis brief"
             emptyMessage="Nothing in the Vitalis inbox this morning that needs you."
           />
-
-          {/* v0.1.7 — the bridge to the working list. Triage above,
-              work below. Inside the owner conditional so readers
-              never see this. */}
-          <div className="manna-todo-bridge">
-            <Link href="/todo" className="manna-todo-bridge-link">
-              Continue to your ToDo →
-            </Link>
-          </div>
         </>
       )}
 
