@@ -2,24 +2,21 @@
 
 // components/BriefItemActions.jsx
 //
-// v0.1.5 — the only client island in Manna. Renders the Done /
-// Delegate / Schedule controls below each brief item, plus the
-// expandable panels for each action.
+// v0.1.5 — the only client island in Manna. Renders the action controls
+// for each brief item.
 //
-// Why a client island: the rest of the page is server-rendered. We
-// keep that pattern and add interactivity only here: useState for
-// the expanded panel + form values, useRouter().refresh() after a
-// successful POST so the page re-renders from the DB.
-//
-// State machine for a single item:
-//   item.state === 'new'        → render the action row + panels
-//   item.state === 'done'       → render a small chip, no actions
-//   item.state === 'delegated'  → render chip
-//   item.state === 'scheduled'  → render chip with html_link if useful
-//
-// The chip approach is by design (INSTRUCTIONS.md §11(c)): done items
-// stay visible in today's brief but quieted; tomorrow they're gone
-// naturally because the daily query filters on date = current_date.
+// v0.1.5.1 — simplified to two actions: Done (with optional note) and
+// Schedule (creates Google Calendar event). The Delegate path was
+// removed after live use revealed:
+//   - Zoho's hash-route compose URL doesn't pre-fill anything; the
+//     compose tab just opens to the inbox.
+//   - The audit row fired the moment the compose tab was opened, so
+//     items got marked "delegated" before any email was actually sent.
+//   - In practice, delegation happens out-of-band (Zoho, phone, in
+//     person) — the owner records what they did via the optional note
+//     on Done, which is what the audit trail actually needs to know.
+// The /api/actions/delegate route and the delegate_recipients table
+// remain in place as dead code for possible future revival.
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -42,10 +39,7 @@ function ItemStateChip({ state }) {
 }
 
 // Default the schedule time to the next half-hour in the BROWSER's
-// local time. The route reinterprets this in MANNA_TIMEZONE, so
-// owners who travel briefly out of WAT can still type "9:00" in
-// the input meaning "9:00 Lagos." If that ever becomes a real edge
-// case, we'll add an explicit tz dropdown.
+// local time. The route reinterprets this in MANNA_TIMEZONE.
 function defaultStartLocal() {
   const d = new Date();
   if (d.getMinutes() < 30) {
@@ -59,22 +53,21 @@ function defaultStartLocal() {
   )}:${pad(d.getMinutes())}`;
 }
 
-export default function BriefItemActions({ item, recipients = [] }) {
+export default function BriefItemActions({ item }) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState(null); // null | 'done' | 'delegate' | 'schedule'
+  const [expanded, setExpanded] = useState(null); // null | 'done' | 'schedule'
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
 
   // Per-panel local state
   const [note, setNote] = useState('');
-  const [recipientKey, setRecipientKey] = useState(
-    recipients[0]?.key || '',
-  );
   const [startLocal, setStartLocal] = useState(defaultStartLocal());
   const [duration, setDuration] = useState(
     Number(item.time_estimate) > 0 ? Number(item.time_estimate) : 30,
   );
 
+  // Already-actioned items show a chip and no controls. Tomorrow's brief
+  // will exclude them automatically (date-filtered query).
   if (item.state && item.state !== 'new') {
     return <ItemStateChip state={item.state} />;
   }
@@ -107,77 +100,6 @@ export default function BriefItemActions({ item, recipients = [] }) {
     }
   }
 
-  function submitDelegate(target) {
-    // Synchronous prep — window.open must be called inside the click
-    // handler tick, before any await, or popup blockers will block it.
-    const recipient = recipients.find((r) => r.key === recipientKey);
-    if (!recipient) {
-      setError('No recipient selected.');
-      return;
-    }
-
-    const subject = `Fwd: ${item.subject || ''}`.trim();
-    const bodyLines = [
-      item.synthesis || '',
-      '',
-      item.source_link ? `Source: ${item.source_link}` : null,
-      '',
-      `— sent from Manna brief, ${new Date().toLocaleDateString()}`,
-    ].filter((l) => l !== null);
-    const composeBody = bodyLines.join('\n');
-
-    let url;
-    if (target === 'mailto') {
-      url = `mailto:${encodeURIComponent(recipient.email)}?subject=${encodeURIComponent(
-        subject,
-      )}&body=${encodeURIComponent(composeBody)}`;
-    } else {
-      // Zoho webmail compose URL. The hash-fragment URL pattern is
-      // best-effort — the body parameter may or may not be honored
-      // depending on Zoho's webmail behavior. If it isn't, the
-      // recipient + subject still pre-fill, and the body is visible
-      // in the same conversation thread once you click into the source.
-      url = `https://mail.zoho.com/zm/#mail/compose?to=${encodeURIComponent(
-        recipient.email,
-      )}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(composeBody)}`;
-    }
-
-    // Open compose window synchronously
-    const opened = window.open(url, '_blank', 'noopener');
-    if (!opened && target !== 'mailto') {
-      // Popup blocked — fall back to mailto: in the same tab.
-      window.location.href = `mailto:${encodeURIComponent(
-        recipient.email,
-      )}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(composeBody)}`;
-    }
-
-    // Now log the delegation server-side. If this fails, the compose
-    // window is already open — the audit is missing but the email
-    // can still be sent.
-    setPending(true);
-    setError(null);
-    void (async () => {
-      try {
-        const res = await fetch('/api/actions/delegate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            brief_item_id: item.id,
-            recipient_key: recipient.key,
-          }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.ok) {
-          throw new Error(json.detail || json.error || `HTTP ${res.status}`);
-        }
-        router.refresh();
-      } catch (e) {
-        setError(`Compose opened but logging failed: ${e.message}`);
-        setPending(false);
-      }
-    })();
-  }
-
   async function submitSchedule() {
     setPending(true);
     setError(null);
@@ -202,8 +124,6 @@ export default function BriefItemActions({ item, recipients = [] }) {
     }
   }
 
-  const noRecipients = recipients.length === 0;
-
   return (
     <div className="manna-actions">
       <div className="manna-actions-row">
@@ -215,16 +135,6 @@ export default function BriefItemActions({ item, recipients = [] }) {
           data-expanded={expanded === 'done' ? 'true' : 'false'}
         >
           Done
-        </button>
-        <button
-          type="button"
-          className="manna-action-btn"
-          onClick={() => toggle('delegate')}
-          disabled={pending || noRecipients}
-          title={noRecipients ? 'No delegate recipients configured' : undefined}
-          data-expanded={expanded === 'delegate' ? 'true' : 'false'}
-        >
-          Delegate
         </button>
         <button
           type="button"
@@ -247,7 +157,7 @@ export default function BriefItemActions({ item, recipients = [] }) {
             className="manna-action-textarea"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. Called Florence, she's handling"
+            placeholder="e.g. Delegated to Joseph by phone; replied directly; CC'd Florence"
             rows={2}
             disabled={pending}
           />
@@ -259,55 +169,6 @@ export default function BriefItemActions({ item, recipients = [] }) {
               disabled={pending}
             >
               {pending ? 'Marking…' : 'Mark done'}
-            </button>
-            <button
-              type="button"
-              className="manna-action-btn-cancel"
-              onClick={() => setExpanded(null)}
-              disabled={pending}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {expanded === 'delegate' && (
-        <div className="manna-actions-panel">
-          <label className="manna-action-label" htmlFor={`recipient-${item.id}`}>
-            Delegate to
-          </label>
-          <select
-            id={`recipient-${item.id}`}
-            className="manna-action-select"
-            value={recipientKey}
-            onChange={(e) => setRecipientKey(e.target.value)}
-            disabled={pending}
-          >
-            {recipients.map((r) => (
-              <option key={r.key} value={r.key}>
-                {r.display_name}
-                {r.role_title ? ` — ${r.role_title}` : ''}
-              </option>
-            ))}
-          </select>
-          <div className="manna-actions-row">
-            <button
-              type="button"
-              className="manna-action-btn-primary"
-              onClick={() => submitDelegate('zoho')}
-              disabled={pending || !recipientKey}
-            >
-              {pending ? 'Logging…' : 'Confirm & open in Zoho'}
-            </button>
-            <button
-              type="button"
-              className="manna-action-btn-secondary"
-              onClick={() => submitDelegate('mailto')}
-              disabled={pending || !recipientKey}
-              title="Open in your system default email client"
-            >
-              Use default email
             </button>
             <button
               type="button"

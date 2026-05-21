@@ -10,7 +10,6 @@ import {
 import { getTodaysDevotional } from '@/lib/devotional';
 import { ownerTodayLong } from '@/lib/dates';
 import { readTodaysBriefForOwner, groupByCategory } from '@/lib/brief-reads';
-import { listActiveRecipients } from '@/lib/delegate-recipients';
 import Fums from '@/components/Fums';
 import BriefItemActions from '@/components/BriefItemActions';
 
@@ -32,14 +31,24 @@ import BriefItemActions from '@/components/BriefItemActions';
 // v0.1.4.2: the brief is live. The owner-only section calls /api/brief to
 // ensure today's brief exists (lazy generate, mirrors the devotional's
 // pattern), reads brief_items via service-role, and renders items grouped
-// by category. Sender display is now cleaned up; empty state is a quiet
-// "nothing this morning" note rather than the prior v0.1.4 placeholder.
+// by category.
 //
-// v0.1.5: each brief item now carries action controls — Done, Delegate,
-// Schedule — rendered by a small client island (components/BriefItemActions).
-// The page still server-renders the items themselves; only the action UI
-// is client. Owner-only as before; reader sees neither the brief nor the
-// recipients list.
+// v0.1.5: each brief item carries Done / Delegate / Schedule action
+// controls via a small client island (components/BriefItemActions).
+//
+// v0.1.5.1 — simplification round, based on real use:
+//   - Delegate UI is removed. The action route + recipients table remain
+//     for possible future use. Delegation now happens out-of-band (in
+//     Zoho/by phone/in person), and the owner records what they did via
+//     the optional note on Done.
+//   - body_excerpt is rendered between the synthesis and the meta line.
+//     This makes the brief self-contained for triage; clicking through
+//     to Zoho is rarely needed.
+//   - The subject is no longer styled as a link. Zoho's webmail does
+//     not support deep-linking to specific emails, so the v0.1.4.2
+//     subject-link was misleading. A small "Open in Zoho →" affordance
+//     at the end of the meta line opens the user's Zoho inbox; the
+//     user searches by subject from there.
 
 export const dynamic = 'force-dynamic';
 
@@ -68,10 +77,6 @@ async function ensureTodaysDevotionalViaApi() {
 }
 
 // v0.1.4.2 — mirror of ensureTodaysDevotionalViaApi for the brief side.
-// Calls /api/brief on the owner's behalf to trigger lazy generation if
-// today's brief is not yet in the DB. Cookies forwarded so the route's
-// auth check passes. Errors are returned, never thrown — the page reads
-// the DB after and renders whatever's there.
 async function ensureTodaysBriefViaApi() {
   const h = await headers();
   const host = h.get('host');
@@ -116,11 +121,6 @@ function PassageText({ text }) {
   );
 }
 
-// v0.1.2.1 — render *...* segments as bold-italic. The devotional engine
-// has been emitting these around short Scripture quotations inside the
-// reflection; the prompt does not yet ask for this, so this renderer just
-// handles it gracefully when it appears. If a paragraph contains no
-// asterisks, this renders identically to plain text.
 function renderInline(text) {
   const segments = text.split(/(\*[^*]+\*)/g).filter((s) => s !== '');
   return segments.map((seg, i) => {
@@ -187,7 +187,7 @@ function Shell({ children }) {
   );
 }
 
-// ─── v0.1.4.2 — brief render helpers ────────────────────────────────
+// ─── brief render helpers ───────────────────────────────────────────
 
 // Sender field cleanup. Zoho sometimes returns the sender as " <email@x>"
 // (leading space, empty display name). Strip cleanly and fall back to the
@@ -225,7 +225,7 @@ const CATEGORY_LABELS = {
   fyi: 'For your information',
 };
 
-function BriefItem({ item, recipients }) {
+function BriefItem({ item }) {
   const senderClean = formatSender(item.sender);
   const flagTag = formatFlagTag(item);
   const stateAttr = item.state || 'new';
@@ -233,19 +233,13 @@ function BriefItem({ item, recipients }) {
     <div className="manna-brief-item" data-state={stateAttr}>
       {flagTag ? <span className="manna-brief-flag">{flagTag}</span> : null}
       <div className="manna-brief-synthesis">{item.synthesis}</div>
+      {/* v0.1.5.1 — raw body excerpt between synthesis and meta. CSS
+          line-clamps to a few lines so long emails don't dominate. */}
+      {item.body_excerpt ? (
+        <div className="manna-brief-excerpt">{item.body_excerpt}</div>
+      ) : null}
       <div className="manna-brief-meta">
-        {item.source_link ? (
-          <a
-            href={item.source_link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="manna-brief-subject"
-          >
-            {item.subject}
-          </a>
-        ) : (
-          <span className="manna-brief-subject">{item.subject}</span>
-        )}
+        <span className="manna-brief-subject">{item.subject}</span>
         <span className="manna-brief-dot"> · </span>
         <span className="manna-brief-sender">{senderClean}</span>
         {item.category === 'schedule' && item.time_estimate ? (
@@ -260,26 +254,40 @@ function BriefItem({ item, recipients }) {
             <span className="manna-brief-owner">{item.suggested_owner}</span>
           </>
         ) : null}
+        {item.source_link ? (
+          <>
+            <span className="manna-brief-dot"> · </span>
+            <a
+              href={item.source_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="manna-brief-open-zoho"
+              title="Opens your Zoho inbox in a new tab. Search by subject to find this email."
+            >
+              Open in Zoho →
+            </a>
+          </>
+        ) : null}
       </div>
-      {/* v0.1.5 — Done / Delegate / Schedule controls. Client island. */}
-      <BriefItemActions item={item} recipients={recipients} />
+      {/* v0.1.5.1 — Done + Schedule only. Delegate dropped. */}
+      <BriefItemActions item={item} />
     </div>
   );
 }
 
-function BriefCategory({ category, items, recipients }) {
+function BriefCategory({ category, items }) {
   if (!items || items.length === 0) return null;
   return (
     <div className="manna-brief-category" data-category={category}>
       <div className="manna-brief-cat-label">{CATEGORY_LABELS[category]}</div>
       {items.map((item) => (
-        <BriefItem key={item.id} item={item} recipients={recipients} />
+        <BriefItem key={item.id} item={item} />
       ))}
     </div>
   );
 }
 
-function BriefSection({ groups, hadError, recipients }) {
+function BriefSection({ groups, hadError }) {
   const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
   if (total === 0) {
     return (
@@ -296,12 +304,7 @@ function BriefSection({ groups, hadError, recipients }) {
     <section className="manna-brief manna-brief-populated">
       <div className="manna-brief-label">The brief</div>
       {groups.map(([cat, items]) => (
-        <BriefCategory
-          key={cat}
-          category={cat}
-          items={items}
-          recipients={recipients}
-        />
+        <BriefCategory key={cat} category={cat} items={items} />
       ))}
     </section>
   );
@@ -310,7 +313,6 @@ function BriefSection({ groups, hadError, recipients }) {
 // ─── page ───────────────────────────────────────────────────────────
 
 export default async function MannaPage() {
-  // Not configured — show a calm setup message rather than crashing.
   if (!isConfigured) {
     return (
       <Shell>
@@ -326,7 +328,6 @@ export default async function MannaPage() {
     );
   }
 
-  // v0.1.3 — auth not configured: friendly setup message.
   if (!isAuthConfigured()) {
     return (
       <Shell>
@@ -342,11 +343,9 @@ export default async function MannaPage() {
     );
   }
 
-  // v0.1.3 — auth gate. No session → /login.
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  // Load the theme library.
   let theme = null;
   let passages = [];
   let loadError = null;
@@ -382,9 +381,6 @@ export default async function MannaPage() {
     );
   }
 
-  // Ensure today's devotional exists (generates on the first load of a new
-  // day), then read it. Both steps are tolerant — if the engine is not yet
-  // fully configured, the page still renders the theme calmly.
   const { error: genError } = await ensureTodaysDevotionalViaApi();
   let devotional = null;
   let morningCount = 0;
@@ -395,13 +391,11 @@ export default async function MannaPage() {
     // Leave devotional null — handled gracefully below.
   }
 
-  // v0.1.4.2 + v0.1.5 — ensure today's brief exists, then read it, and
-  // fetch the delegate recipients list. Owner-only; for the reader role
-  // we skip all of this so the brief data and the recipients table both
-  // stay off the reader's page entirely. See PITFALLS §3.
+  // v0.1.5.1 — the brief generation + read flow. Owner-only; reader
+  // sees the devotional alone. We no longer fetch delegate_recipients
+  // here since the Delegate UI was removed.
   let briefGroups = groupByCategory([]);
   let briefError = null;
-  let recipients = [];
   if (user.role === 'owner') {
     const briefGen = await ensureTodaysBriefViaApi();
     briefError = briefGen.error;
@@ -411,19 +405,11 @@ export default async function MannaPage() {
     } catch (e) {
       briefError = briefError || e.message;
     }
-    try {
-      recipients = await listActiveRecipients();
-    } catch (e) {
-      // Non-fatal — the delegate dropdown just shows empty if this fails.
-      // The Delegate button will be disabled (BriefItemActions checks).
-      briefError = briefError || `recipients_load_failed: ${e.message}`;
-    }
   }
 
   const passageById = (id) => passages.find((p) => p.id === id) || null;
   const todaysPassage = devotional ? passageById(devotional.passage_id) : null;
 
-  // The header theme line. Quiet — date and theme only, never the lens.
   const themeLine =
     devotional && morningCount > 0
       ? `${theme.name} — morning ${morningCount}`
@@ -441,7 +427,6 @@ export default async function MannaPage() {
         </div>
       </header>
 
-      {/* The devotional — above the fold, room to breathe. */}
       <section className="manna-devotional">
         {devotional ? (
           <>
@@ -479,15 +464,10 @@ export default async function MannaPage() {
         )}
       </section>
 
-      {/* v0.1.3 — the brief is owner-only. Reader sees the devotional alone. */}
       {user.role === 'owner' && (
         <>
           <div className="manna-divider" />
-          <BriefSection
-            groups={briefGroups}
-            hadError={Boolean(briefError)}
-            recipients={recipients}
-          />
+          <BriefSection groups={briefGroups} hadError={Boolean(briefError)} />
         </>
       )}
 

@@ -177,7 +177,6 @@ body {
 }
 
 /* --- FUMS (API.Bible tracking) -------------------------------------------- */
-/* Present, as the terms require, but visually out of the way. */
 
 .manna-fums {
   height: 0;
@@ -193,12 +192,10 @@ body {
   margin: 3rem 0;
 }
 
-/* --- The brief — v0.1.4.2 (was placeholder in v0.1.2-v0.1.4) ------------ */
-/* The brief is owner-only; reader never sees this section at all.          */
+/* --- The brief ----------------------------------------------------------- */
 
 .manna-brief {
-  /* Base — neutral. No box, no border. The brief is part of the page,
-     not a card pasted onto it. */
+  /* Base — neutral. */
 }
 
 .manna-brief-label {
@@ -210,7 +207,6 @@ body {
   margin-bottom: 2rem;
 }
 
-/* Empty state — a quiet line, not a placeholder box. */
 .manna-brief-empty {
   text-align: center;
   padding: 1rem 0;
@@ -248,7 +244,7 @@ body {
 
 /* Individual brief item */
 .manna-brief-item {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
   padding-left: 0.85rem;
   border-left: 2px solid var(--manna-rule);
   transition: opacity 0.2s ease;
@@ -263,9 +259,7 @@ body {
 }
 
 /* v0.1.5 — actioned items dim back, leaving the chip and content
-   readable but signaling "handled." We keep the item visible today
-   so the page reflects all of today's brief regardless of state;
-   tomorrow they're gone naturally via the date filter. */
+   readable but signaling "handled." */
 .manna-brief-item[data-state="done"],
 .manna-brief-item[data-state="delegated"],
 .manna-brief-item[data-state="scheduled"] {
@@ -295,7 +289,25 @@ body {
   font-size: 1.02rem;
   line-height: 1.55;
   color: var(--manna-ink);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+/* v0.1.5.1 — body excerpt: raw email text in muted sans, line-clamped.
+   Distinguishes visually from the serif synthesis line above. The
+   line-clamp keeps long emails from dominating the item; the user can
+   see the gist and click "Open in Zoho" for the full thread. */
+.manna-brief-excerpt {
+  font-family: var(--manna-sans);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--manna-ink-soft);
+  margin-bottom: 0.55rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .manna-brief-meta {
@@ -307,17 +319,6 @@ body {
 
 .manna-brief-subject {
   color: var(--manna-ink-soft);
-}
-
-a.manna-brief-subject {
-  color: var(--manna-ink-soft);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-a.manna-brief-subject:hover {
-  color: var(--manna-ink);
-  border-bottom-color: var(--manna-rule);
 }
 
 .manna-brief-dot {
@@ -337,9 +338,22 @@ a.manna-brief-subject:hover {
   color: var(--manna-accent);
 }
 
+/* v0.1.5.1 — Open in Zoho link. Honest framing: opens the user's
+   Zoho inbox (Zoho doesn't support per-message deep-links). The
+   user searches by subject from there. Styled as a quiet inline
+   link, not a button. */
+.manna-brief-open-zoho {
+  color: var(--manna-accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(138, 106, 58, 0.3);
+  transition: border-color 0.15s ease;
+}
+
+.manna-brief-open-zoho:hover {
+  border-bottom-color: var(--manna-accent);
+}
+
 /* --- v0.1.5 — action controls per brief item ----------------------------- */
-/* Below the meta line of each item. Quiet by design — the brief is for
-   reading, action UI is secondary. */
 
 .manna-actions {
   margin-top: 0.75rem;
@@ -357,10 +371,8 @@ a.manna-brief-subject:hover {
   margin-top: 0.65rem;
 }
 
-/* Inline text-button — primary action trigger */
 .manna-action-btn,
 .manna-action-btn-primary,
-.manna-action-btn-secondary,
 .manna-action-btn-cancel {
   font-family: var(--manna-sans);
   font-size: 0.76rem;
@@ -378,7 +390,6 @@ a.manna-brief-subject:hover {
 
 .manna-action-btn:hover:not(:disabled),
 .manna-action-btn-primary:hover:not(:disabled),
-.manna-action-btn-secondary:hover:not(:disabled),
 .manna-action-btn-cancel:hover:not(:disabled) {
   color: var(--manna-accent);
   border-bottom-color: var(--manna-accent);
@@ -389,25 +400,19 @@ a.manna-brief-subject:hover {
   border-bottom-color: var(--manna-accent);
 }
 
-.manna-action-btn-secondary,
-.manna-action-btn-cancel {
-  font-style: italic;
-}
-
 .manna-action-btn-cancel {
   color: var(--manna-ink-soft);
   border-bottom-color: transparent;
+  font-style: italic;
 }
 
 .manna-action-btn:disabled,
 .manna-action-btn-primary:disabled,
-.manna-action-btn-secondary:disabled,
 .manna-action-btn-cancel:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-/* Expanded panel — sits below the action row */
 .manna-actions-panel {
   margin-top: 0.85rem;
   padding: 0.85rem 1rem;
@@ -426,8 +431,7 @@ a.manna-brief-subject:hover {
 }
 
 .manna-action-textarea,
-.manna-action-input,
-.manna-action-select {
+.manna-action-input {
   font-family: var(--manna-sans);
   font-size: 0.9rem;
   color: var(--manna-ink);
@@ -448,11 +452,6 @@ a.manna-brief-subject:hover {
   width: 5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-.manna-action-select {
-  width: 100%;
-  appearance: auto;
 }
 
 .manna-action-textarea {
@@ -509,7 +508,7 @@ a.manna-brief-subject:hover {
   color: var(--manna-accent);
 }
 
-/* --- General prose note (used by setup pages and elsewhere) ------------- */
+/* --- General prose note ------------------------------------------------- */
 
 .manna-note {
   font-size: 0.95rem;
@@ -579,6 +578,11 @@ a.manna-brief-subject:hover {
   }
   .manna-brief-meta {
     font-size: 0.78rem;
+  }
+  .manna-brief-excerpt {
+    font-size: 0.82rem;
+    -webkit-line-clamp: 5;
+    line-clamp: 5;
   }
   .manna-actions-row {
     gap: 0.75rem;
