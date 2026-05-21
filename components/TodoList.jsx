@@ -2,20 +2,20 @@
 
 // components/TodoList.jsx
 //
-// v0.1.7 — renders the open and completed-today sections of the ToDo
-// page. Each row has its own interactive bits (Done / Reopen / a small
-// × for delete), so the whole list is a client island even though most
-// of the content is text.
+// v0.1.7 — renders the open and completed-today sections of the ToDo page.
+// v0.1.8 — adds Priority chip (Normal <-> High toggle) and Due-date chip
+//          (click to open inline date picker; small x next to it clears
+//          directly). High-priority rows get a red left border. Overdue
+//          dates render in red, Today in amber. The page passes
+//          todayIso/tomorrowIso so the row label uses the same "today"
+//          reference as the sort.
 //
-// Layout per row:
+// Layout per row (open):
 //   - Title (serif, like the brief synthesis)
 //   - Body excerpt (sans, muted) — only for brief-sourced todos
-//   - Source link (Open in Gmail / Open in Zoho) — only for
-//     brief-sourced todos
-//   - Action: Done (open) or Reopen (done)
-//   - Delete: small × button, less prominent. Only really for typos
-//     and mistaken adds — see lib/todos.js header on why this doesn't
-//     revert the originating brief item's state.
+//   - Source link (Open in Gmail / Open in Zoho) — only for brief-sourced
+//   - Chips row: [Priority] [Due-date]  [x to clear]
+//   - Right side: Done button + small x for delete
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -33,11 +33,66 @@ function openLinkLabel(source) {
   return 'Open →';
 }
 
-function TodoRow({ todo, onDone, onReopen, onDelete, pending }) {
+// Compute the display label for a due date.
+// Returns { label, status } where status is one of:
+//   'overdue' | 'today' | 'tomorrow' | 'future' | null (no date set).
+function computeDueLabel(dueDateIso, todayIso, tomorrowIso) {
+  if (!dueDateIso) return { label: 'Set date', status: null };
+  if (dueDateIso === todayIso) return { label: 'Today', status: 'today' };
+  if (dueDateIso === tomorrowIso) return { label: 'Tomorrow', status: 'tomorrow' };
+
+  if (dueDateIso < todayIso) {
+    // Overdue. Compute days ago via UTC parse (pure calendar arithmetic).
+    const today = new Date(todayIso + 'T00:00:00Z');
+    const due = new Date(dueDateIso + 'T00:00:00Z');
+    const diffDays = Math.round((today - due) / (1000 * 60 * 60 * 24));
+    return { label: `Overdue · ${diffDays}d`, status: 'overdue' };
+  }
+
+  // Future. Format as "MMM D".
+  const due = new Date(dueDateIso + 'T00:00:00Z');
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const label = `${monthNames[due.getUTCMonth()]} ${due.getUTCDate()}`;
+  return { label, status: 'future' };
+}
+
+function TodoRow({
+  todo,
+  todayIso,
+  tomorrowIso,
+  onDone,
+  onReopen,
+  onDelete,
+  onPriorityToggle,
+  onDueDateSet,
+  pending,
+}) {
   const isDone = todo.state === 'done';
   const lbl = sourceLabel(todo.source);
+  const isHigh = todo.priority === 'high';
+  const dueInfo = computeDueLabel(todo.due_date, todayIso, tomorrowIso);
+
+  // Per-row state for the inline date editor.
+  const [editingDate, setEditingDate] = useState(false);
+
+  function handleDateChange(e) {
+    const value = e.target.value || null;
+    onDueDateSet(todo.id, value);
+    setEditingDate(false);
+  }
+
+  function handleDateClear() {
+    onDueDateSet(todo.id, null);
+  }
+
   return (
-    <li className="manna-todo-row" data-state={todo.state} data-source={todo.source}>
+    <li
+      className="manna-todo-row"
+      data-state={todo.state}
+      data-source={todo.source}
+      data-priority={todo.priority || 'normal'}
+      data-due={dueInfo.status || 'none'}
+    >
       <div className="manna-todo-row-main">
         <div className="manna-todo-title">{todo.title}</div>
         {todo.body_excerpt && (
@@ -57,7 +112,66 @@ function TodoRow({ todo, onDone, onReopen, onDelete, pending }) {
             </a>
           )}
         </div>
+
+        {/* Chips row — only on open todos. Done todos don't need to
+            change priority or due date. */}
+        {!isDone && (
+          <div className="manna-todo-chips">
+            <button
+              type="button"
+              className={`manna-todo-chip manna-todo-chip-priority manna-todo-chip-priority-${isHigh ? 'high' : 'normal'}`}
+              onClick={() => onPriorityToggle(todo.id, isHigh ? 'normal' : 'high')}
+              disabled={pending}
+              aria-label={`Priority: ${isHigh ? 'High' : 'Normal'} (tap to toggle)`}
+              title="Toggle priority"
+            >
+              {isHigh ? 'High' : 'Normal'}
+            </button>
+
+            <span className="manna-todo-due-wrap">
+              {!editingDate ? (
+                <>
+                  <button
+                    type="button"
+                    className={`manna-todo-chip manna-todo-chip-due manna-todo-chip-due-${dueInfo.status || 'none'}`}
+                    onClick={() => setEditingDate(true)}
+                    disabled={pending}
+                    aria-label={
+                      todo.due_date
+                        ? `Due ${dueInfo.label} (tap to change)`
+                        : 'Set due date'
+                    }
+                  >
+                    {dueInfo.label}
+                  </button>
+                  {todo.due_date && (
+                    <button
+                      type="button"
+                      className="manna-todo-chip-due-clear"
+                      onClick={handleDateClear}
+                      disabled={pending}
+                      aria-label="Clear due date"
+                      title="Clear due date"
+                    >
+                      ×
+                    </button>
+                  )}
+                </>
+              ) : (
+                <input
+                  type="date"
+                  className="manna-todo-date-input"
+                  defaultValue={todo.due_date || ''}
+                  onChange={handleDateChange}
+                  onBlur={() => setEditingDate(false)}
+                  autoFocus
+                />
+              )}
+            </span>
+          </div>
+        )}
       </div>
+
       <div className="manna-todo-row-actions">
         {!isDone && (
           <button
@@ -94,7 +208,7 @@ function TodoRow({ todo, onDone, onReopen, onDelete, pending }) {
   );
 }
 
-export default function TodoList({ open, completedToday }) {
+export default function TodoList({ open, completedToday, todayIso, tomorrowIso }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
@@ -116,6 +230,7 @@ export default function TodoList({ open, completedToday }) {
     } catch (e) {
       setError(e.message);
     } finally {
+      // PITFALLS §11 — reset in finally so undo/error paths reset too.
       setPending(false);
     }
   }
@@ -126,6 +241,10 @@ export default function TodoList({ open, completedToday }) {
     if (!confirm('Delete this todo?')) return;
     post('/api/todos/delete', { todoId });
   };
+  const onPriorityToggle = (todoId, priority) =>
+    post('/api/todos/priority', { todoId, priority });
+  const onDueDateSet = (todoId, dueDate) =>
+    post('/api/todos/due', { todoId, dueDate });
 
   const hasOpen = open && open.length > 0;
   const hasCompleted = completedToday && completedToday.length > 0;
@@ -142,9 +261,13 @@ export default function TodoList({ open, completedToday }) {
               <TodoRow
                 key={t.id}
                 todo={t}
+                todayIso={todayIso}
+                tomorrowIso={tomorrowIso}
                 onDone={onDone}
                 onReopen={onReopen}
                 onDelete={onDelete}
+                onPriorityToggle={onPriorityToggle}
+                onDueDateSet={onDueDateSet}
                 pending={pending}
               />
             ))}
@@ -164,9 +287,13 @@ export default function TodoList({ open, completedToday }) {
               <TodoRow
                 key={t.id}
                 todo={t}
+                todayIso={todayIso}
+                tomorrowIso={tomorrowIso}
                 onDone={onDone}
                 onReopen={onReopen}
                 onDelete={onDelete}
+                onPriorityToggle={onPriorityToggle}
+                onDueDateSet={onDueDateSet}
                 pending={pending}
               />
             ))}

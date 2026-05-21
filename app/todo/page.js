@@ -6,22 +6,16 @@ import {
   readOpenTodosForOwner,
   readCompletedTodayForOwner,
 } from '@/lib/todo-reads';
+import { ownerTodayIso, ownerTomorrowIso } from '@/lib/todos';
 import TodoQuickAdd from '@/components/TodoQuickAdd';
 import TodoList from '@/components/TodoList';
 
 // app/todo/page.js
 //
 // v0.1.7 — Manna's third surface. The working list.
-//
-// Reached from a "Continue to your ToDo →" affordance at the end of
-// the Vitalis brief on the home page. Owner-only. Readers are
-// redirected to the home page so they can't see this even exists
-// (defence in depth; the link itself only renders for owners).
-//
-// Mobile-first design: the Manna home page is desktop-leaning (wide
-// prose, generous margins); /todo is the surface the owner returns to
-// throughout the day, often from a phone. Layout is single column,
-// large tap targets, quick-add input pinned at the top.
+// v0.1.8 — passes ownerTodayIso / ownerTomorrowIso to TodoList so the
+//          client can render due-date labels (Today / Tomorrow / Overdue /
+//          MMM D) without doing TZ math itself.
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +33,9 @@ export default async function TodoPage() {
   }
 
   const dateLine = ownerTodayLong();
+  const todayIso = ownerTodayIso();
+  const tomorrowIso = ownerTomorrowIso();
+
   const [open, completedToday] = await Promise.all([
     readOpenTodosForOwner(user),
     readCompletedTodayForOwner(user),
@@ -56,7 +53,12 @@ export default async function TodoPage() {
 
       <TodoQuickAdd />
 
-      <TodoList open={open} completedToday={completedToday} />
+      <TodoList
+        open={open}
+        completedToday={completedToday}
+        todayIso={todayIso}
+        tomorrowIso={tomorrowIso}
+      />
 
       <footer className="manna-footer">
         <Link href="/" className="manna-todo-home-link">
