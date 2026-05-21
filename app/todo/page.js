@@ -16,8 +16,21 @@ import TodoList from '@/components/TodoList';
 // v0.1.8 — passes ownerTodayIso / ownerTomorrowIso to TodoList so the
 //          client can render due-date labels (Today / Tomorrow / Overdue /
 //          MMM D) without doing TZ math itself.
+// v0.1.8.1 — also passes minDateIso / maxDateIso for the date input's
+//          min/max attributes (prevents far-past / far-future year typos
+//          from the browser's fiddly MM/DD/YYYY date picker).
 
 export const dynamic = 'force-dynamic';
+
+// Bound the date picker to a sensible window. The browser's native
+// <input type="date"> on Mac Chrome accepts a partially-typed year
+// (e.g. user tabs off after typing "2" — accepts year 0002). min/max
+// attributes greys out invalid dates in the calendar picker AND mark
+// the input invalid if the user types an out-of-range value.
+function isoShiftYears(iso, deltaYears) {
+  const y = Number(iso.slice(0, 4));
+  return `${y + deltaYears}${iso.slice(4)}`;
+}
 
 export default async function TodoPage() {
   if (!isAuthConfigured()) {
@@ -35,6 +48,8 @@ export default async function TodoPage() {
   const dateLine = ownerTodayLong();
   const todayIso = ownerTodayIso();
   const tomorrowIso = ownerTomorrowIso();
+  const minDateIso = todayIso;                          // no past dates
+  const maxDateIso = isoShiftYears(todayIso, 5);        // 5 years out
 
   const [open, completedToday] = await Promise.all([
     readOpenTodosForOwner(user),
@@ -58,6 +73,8 @@ export default async function TodoPage() {
         completedToday={completedToday}
         todayIso={todayIso}
         tomorrowIso={tomorrowIso}
+        minDateIso={minDateIso}
+        maxDateIso={maxDateIso}
       />
 
       <footer className="manna-footer">

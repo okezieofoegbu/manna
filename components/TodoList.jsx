@@ -9,6 +9,11 @@
 //          dates render in red, Today in amber. The page passes
 //          todayIso/tomorrowIso so the row label uses the same "today"
 //          reference as the sort.
+// v0.1.8.1 — date input now has min/max attributes (today through +5y)
+//          to prevent the Mac Chrome native picker from accepting a
+//          partial-year typo (e.g. year 0023). Belt-and-braces: same
+//          bound check in lib/todos.js setDueDate, and a defensive
+//          year-range alert in handleDateChange.
 //
 // Layout per row (open):
 //   - Title (serif, like the brief synthesis)
@@ -60,6 +65,8 @@ function TodoRow({
   todo,
   todayIso,
   tomorrowIso,
+  minDateIso,
+  maxDateIso,
   onDone,
   onReopen,
   onDelete,
@@ -77,6 +84,23 @@ function TodoRow({
 
   function handleDateChange(e) {
     const value = e.target.value || null;
+
+    // v0.1.8.1 — defensive client-side year check. The browser's
+    // native picker on Mac Chrome lets a 1- or 2-digit year through
+    // if the user tabs off mid-typing. The min/max attributes catch
+    // most cases, this is the safety net.
+    if (value) {
+      const year = Number(value.slice(0, 4));
+      if (year < 2020 || year > 2100) {
+        alert(
+          `That doesn't look like a real date (year ${year}). ` +
+          `Try again — make sure all four digits of the year are entered.`,
+        );
+        // Don't close the editor; let the user retry.
+        return;
+      }
+    }
+
     onDueDateSet(todo.id, value);
     setEditingDate(false);
   }
@@ -164,6 +188,8 @@ function TodoRow({
                   defaultValue={todo.due_date || ''}
                   onChange={handleDateChange}
                   onBlur={() => setEditingDate(false)}
+                  min={minDateIso}
+                  max={maxDateIso}
                   autoFocus
                 />
               )}
@@ -208,7 +234,14 @@ function TodoRow({
   );
 }
 
-export default function TodoList({ open, completedToday, todayIso, tomorrowIso }) {
+export default function TodoList({
+  open,
+  completedToday,
+  todayIso,
+  tomorrowIso,
+  minDateIso,
+  maxDateIso,
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
@@ -263,6 +296,8 @@ export default function TodoList({ open, completedToday, todayIso, tomorrowIso }
                 todo={t}
                 todayIso={todayIso}
                 tomorrowIso={tomorrowIso}
+                minDateIso={minDateIso}
+                maxDateIso={maxDateIso}
                 onDone={onDone}
                 onReopen={onReopen}
                 onDelete={onDelete}
@@ -289,6 +324,8 @@ export default function TodoList({ open, completedToday, todayIso, tomorrowIso }
                 todo={t}
                 todayIso={todayIso}
                 tomorrowIso={tomorrowIso}
+                minDateIso={minDateIso}
+                maxDateIso={maxDateIso}
                 onDone={onDone}
                 onReopen={onReopen}
                 onDelete={onDelete}
