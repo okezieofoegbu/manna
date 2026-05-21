@@ -104,13 +104,10 @@ export async function readBriefForDate(date) {
   const supabase = getServiceClient();
   // v0.1.6 — brief_items is shared across sources. Filter explicitly
   // so this Transworld read function returns only Transworld rows.
-  // v0.1.7.3 — include done_note. Without this in the SELECT,
-  // BriefItem rendering never sees the column (item.done_note is
-  // undefined) and the page falls back to body_excerpt on Done items.
   const { data, error } = await supabase
     .from('brief_items')
     .select(
-      'id, date, source, source_email_id, source_link, sender, subject, category, synthesis, body_excerpt, done_note, suggested_owner, time_estimate, state, system_flag, prompt_version, created_at',
+      'id, date, source, source_email_id, source_link, sender, subject, category, synthesis, body_excerpt, suggested_owner, time_estimate, state, system_flag, prompt_version, created_at',
     )
     .eq('date', date)
     .eq('source', ZOHO_TRANSWORLD_SOURCE)

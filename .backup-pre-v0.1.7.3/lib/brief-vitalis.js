@@ -90,14 +90,10 @@ export async function getOrGenerateTodaysVitalisBrief() {
 
 export async function readVitalisBriefForDate(date) {
   const supabase = getServiceClient();
-  // v0.1.7.3 — include done_note in the column list. Without this,
-  // the page-side render condition (item.state === 'done' &&
-  // item.done_note) is always false and the body excerpt shows
-  // instead of the note.
   const { data, error } = await supabase
     .from('brief_items')
     .select(
-      'id, date, source, source_email_id, source_link, sender, subject, category, synthesis, body_excerpt, done_note, suggested_owner, time_estimate, state, system_flag, prompt_version, created_at',
+      'id, date, source, source_email_id, source_link, sender, subject, category, synthesis, body_excerpt, suggested_owner, time_estimate, state, system_flag, prompt_version, created_at',
     )
     .eq('date', date)
     .eq('source', GMAIL_VITALIS_SOURCE)
