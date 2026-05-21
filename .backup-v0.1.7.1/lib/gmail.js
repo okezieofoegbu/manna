@@ -1,28 +1,26 @@
 // lib/gmail.js
 //
-// v0.1.7.2 — Gmail URL routing, third attempt and this one is correct.
+// Gmail API helpers for the Vitalis brief pipeline. Mirrors the shape
+// of lib/zoho.js (auth, list, fetch) but uses Gmail's REST API with
+// the user's own OAuth credentials.
 //
-// The chain of fixes:
-//   v0.1.7   — added env-var-controlled ?authuser= param, fell back to
-//              broken /u/0/ when unset. Bug stayed live.
-//   v0.1.7.1 — defaulted in code; switched to /u/<email>/. Pattern was
-//              right but I URL-encoded the email, so @ became %40 in
-//              the path. Gmail's account-spec parser doesn't recognize
-//              %40 as a valid account ID and falls back to the default
-//              account (which for Okezie was the personal Gmail). Bug
-//              continued.
-//   v0.1.7.2 — drop the encoding. Gmail's /u/<email>/ pattern expects
-//              the literal @ in the path. Most URL parsers accept @
-//              in this position; this is the documented account-routing
-//              form (confirmed across multiple sources, including
-//              Google's own multi-account routing guidance).
-//
-// All other code in this file is unchanged from v0.1.7.1.
+// v0.1.6 — initial.
+// v0.1.7 — first attempt at fixing the multi-account-routing issue.
+//   Added an env-var-controlled ?authuser= parameter but fell back
+//   to the broken /u/0/ URL when the env var was unset. This silently
+//   continued the bug because the env var was optional and unset.
+// v0.1.7.1 — actual fix. Two changes:
+//   - Default address is now in code (okezie@vitalishealthcare.com),
+//     so the env var is genuinely optional.
+//   - URL pattern is /u/<email>/ instead of /u/0/?authuser=<email>.
+//     This is Gmail's primary account routing pattern (same shape
+//     as Google Drive's /u/<email>/ URLs) and is more reliable than
+//     the query-param approach.
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
-// The address Gmail links should open in. Override via env var only
-// if the Vitalis Workspace address ever changes.
+// The address Gmail links should open in. Override via the env var
+// only if the Vitalis Workspace address ever changes.
 const DEFAULT_VITALIS_AUTHUSER = 'okezie@vitalishealthcare.com';
 
 // ---------------------------------------------------------------------------
@@ -92,9 +90,8 @@ async function gmailGet(url) {
 }
 
 // ---------------------------------------------------------------------------
-// listMessageIds
+// listMessageIds — query messages.list for our window
 // ---------------------------------------------------------------------------
-
 export async function listMessageIds({ sinceEpochSeconds, maxResults = 100 } = {}) {
   if (!sinceEpochSeconds || typeof sinceEpochSeconds !== 'number') {
     throw new Error('listMessageIds: sinceEpochSeconds (number) is required');
@@ -114,9 +111,8 @@ export async function listMessageIds({ sinceEpochSeconds, maxResults = 100 } = {
 }
 
 // ---------------------------------------------------------------------------
-// getMessageMetadata
+// getMessageMetadata — headers + snippet
 // ---------------------------------------------------------------------------
-
 const HEADER_NAMES = [
   'From',
   'To',
@@ -156,9 +152,8 @@ export async function getMessageMetadata(id) {
 }
 
 // ---------------------------------------------------------------------------
-// getMessageMetadataBatch
+// getMessageMetadataBatch — sequential fetch with small concurrency
 // ---------------------------------------------------------------------------
-
 export async function getMessageMetadataBatch(ids, { concurrency = 4 } = {}) {
   const out = [];
   let i = 0;
@@ -190,9 +185,8 @@ export async function getMessageMetadataBatch(ids, { concurrency = 4 } = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// parseSenderEmail / extractDomain
+// parseSenderEmail / extractDomain — helpers used by the Vitalis filter
 // ---------------------------------------------------------------------------
-
 export function parseSenderEmail(fromHeader) {
   if (!fromHeader) return null;
   const m = fromHeader.match(/<([^>]+)>/);
@@ -210,29 +204,24 @@ export function extractDomain(email) {
 }
 
 // ---------------------------------------------------------------------------
-// buildGmailThreadLink — v0.1.7.2, the working version
+// buildGmailThreadLink — v0.1.7.1: actually routes to the right account
 // ---------------------------------------------------------------------------
 //
 // Pattern: https://mail.google.com/mail/u/<email>/#inbox/{threadId}
 //
-// CRITICAL: the email goes in literally, WITHOUT URL-encoding the @.
-// Gmail's account-routing parser specifically expects the literal @
-// here. Encoding it as %40 (what encodeURIComponent does) breaks the
-// match and Gmail falls back to the default account.
+// This is the same routing pattern Google Drive uses (e.g.
+// /drive/u/<email>/...) and is the most reliable way to force a
+// link to open in a specific signed-in account. Unlike the v0.1.7
+// attempt with /u/0/?authuser=, the email-in-path form is parsed
+// by Google's URL handler before the page loads, so there's no
+// race condition with whichever account loaded first.
 //
-// @ is technically a reserved URL character but is accepted in URL
-// pathnames for this specific Gmail routing pattern. Browsers do not
-// re-encode it when navigating to a URL constructed this way.
-//
-// Default address is configured in code (DEFAULT_VITALIS_AUTHUSER)
-// since the only Vitalis Gmail account these links should ever point
-// to is the Workspace one. GMAIL_VITALIS_AUTHUSER overrides if you
-// need a different address (e.g. if the Workspace address ever
-// changes).
+// The default is configured in code as okezie@vitalishealthcare.com
+// because that's the only address Vitalis links should open in.
+// GMAIL_VITALIS_AUTHUSER overrides it if you ever need to.
 export function buildGmailThreadLink(threadId) {
   if (!threadId) return null;
   const envAddr = (process.env.GMAIL_VITALIS_AUTHUSER || '').trim();
   const authUser = envAddr || DEFAULT_VITALIS_AUTHUSER;
-  // Do NOT use encodeURIComponent here. The @ must be literal.
-  return `https://mail.google.com/mail/u/${authUser}/#inbox/${threadId}`;
+  return `https://mail.google.com/mail/u/${encodeURIComponent(authUser)}/#inbox/${threadId}`;
 }

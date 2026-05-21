@@ -3,18 +3,12 @@
 // components/BriefItemActions.jsx
 //
 // v0.1.7 — Done + Add to ToDo (Schedule removed from UI).
-// v0.1.7.1 — undo link added next to the state chip.
-// v0.1.7.2 — bug fix: setPending(false) was only called in the catch
-//   branch of submitUndo. For Done and Add to ToDo this didn't matter
-//   because the brief item changes state ('done' / 'added_to_todo')
-//   and the component takes the early-return chip path, which has no
-//   pending state to clear. But Undo returns the item to state='new',
-//   so the same component keeps rendering Done / Add to ToDo buttons
-//   — with pending stuck at true, leaving both buttons greyed out.
-//   Fix: use a finally block so pending always resets after the
-//   request completes, regardless of outcome. Same fix applied to
-//   submitDone and submitAddToTodo for defense (though they don't
-//   currently exhibit the bug).
+// v0.1.7.1 — small additions:
+//   - "undo" link next to the state chip on actioned items.
+//   - When state='done' and done_note is present, show the note in
+//     the chip area in italic (handled in the page render below the
+//     synthesis; this component is only responsible for the chip +
+//     undo affordance).
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -70,15 +64,12 @@ export default function BriefItemActions({ item }) {
       router.refresh();
     } catch (e) {
       setError(e.message);
-    } finally {
-      // v0.1.7.2 — always reset pending. After undo the item goes
-      // back to state='new' and this same component keeps rendering
-      // the active buttons; without this, they stay disabled.
       setPending(false);
     }
   }
 
-  // Already-actioned items show the chip + undo.
+  // Already-actioned items show the chip + undo. Tomorrow's brief
+  // filters by date so these don't reappear.
   if (item.state && item.state !== 'new') {
     return (
       <>
@@ -112,7 +103,6 @@ export default function BriefItemActions({ item }) {
       router.refresh();
     } catch (e) {
       setError(e.message);
-    } finally {
       setPending(false);
     }
   }
@@ -134,7 +124,6 @@ export default function BriefItemActions({ item }) {
       router.refresh();
     } catch (e) {
       setError(e.message);
-    } finally {
       setPending(false);
     }
   }
