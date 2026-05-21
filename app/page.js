@@ -9,7 +9,11 @@ import {
 } from '@/lib/themes';
 import { getTodaysDevotional } from '@/lib/devotional';
 import { ownerTodayLong } from '@/lib/dates';
-import { readTodaysBriefForOwner, groupByCategory } from '@/lib/brief-reads';
+import {
+  readTodaysBriefForOwner,
+  readTodaysVitalisBriefForOwner,
+  groupByCategory,
+} from '@/lib/brief-reads';
 import Fums from '@/components/Fums';
 import BriefItemActions from '@/components/BriefItemActions';
 
@@ -49,6 +53,23 @@ import BriefItemActions from '@/components/BriefItemActions';
 //     subject-link was misleading. A small "Open in Zoho →" affordance
 //     at the end of the meta line opens the user's Zoho inbox; the
 //     user searches by subject from there.
+//
+// v0.1.6 — second source. The Vitalis Healthcare Services Gmail inbox
+// is now a second brief section, rendered below the Transworld brief
+// under its own divider and "THE VITALIS BRIEF" label. Per PITFALLS §3
+// the two pipelines run completely independently — different prompts,
+// different Anthropic calls, different filters, different flag sets.
+// They share only the brief_items table (with source column) and the
+// page-render code below.
+//
+// Render details for the Vitalis section:
+//   - Same BriefItem / BriefCategory / BriefSection components, with a
+//     `sourceLabel` and `emptyMessage` parameterized per section.
+//   - BriefItem inspects item.source to pick "Open in Gmail →" (which
+//     DOES deep-link, unlike Zoho) vs "Open in Zoho →".
+//   - formatFlagTag now recognizes the five Vitalis flag types.
+//   - Action buttons (Done / Schedule) work identically for Vitalis
+//     items because the actions table is source-agnostic.
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +98,9 @@ async function ensureTodaysDevotionalViaApi() {
 }
 
 // v0.1.4.2 — mirror of ensureTodaysDevotionalViaApi for the brief side.
+// v0.1.6 — this single call triggers BOTH Transworld and Vitalis brief
+// generations server-side (the /api/brief route runs them in parallel
+// via Promise.allSettled). One page-load, two briefs.
 async function ensureTodaysBriefViaApi() {
   const h = await headers();
   const host = h.get('host');
@@ -189,33 +213,59 @@ function Shell({ children }) {
 
 // ─── brief render helpers ───────────────────────────────────────────
 
-// Sender field cleanup. Zoho sometimes returns the sender as " <email@x>"
-// (leading space, empty display name). Strip cleanly and fall back to the
-// bare email when no name is present.
+// Sender field cleanup. Zoho and Gmail both return the sender as either
+// "Display Name <email@x>" or a bare email; this normalizes either case.
 function formatSender(s) {
   if (!s) return 'unknown sender';
   const trimmed = String(s).trim();
   const m = trimmed.match(/^(.*?)<([^>]+)>$/);
   if (m) {
-    const name = m[1].trim();
+    const name = m[1].trim().replace(/^["']|["']$/g, '');
     const email = m[2].trim();
     return name || email;
   }
   return trimmed;
 }
 
-// Format the system_flag as a small tag. For breach items, try to extract
-// the age (hours) from the synthesis line, which the prompt requires.
+// Format the system_flag as a small tag. v0.1.6 — five new Vitalis
+// flags join the two Transworld flags.
 function formatFlagTag(item) {
-  if (item.system_flag === 'investment_no_response_breach') {
-    const m = item.synthesis && item.synthesis.match(/(\d+)\s*hours?/i);
-    if (m) return `${m[1]}h unanswered`;
-    return 'unanswered';
+  switch (item.system_flag) {
+    // Transworld flags
+    case 'investment_no_response_breach': {
+      const m = item.synthesis && item.synthesis.match(/(\d+)\s*hours?/i);
+      return m ? `${m[1]}h unanswered` : 'unanswered';
+    }
+    case 'regulator_staff_communication':
+      return 'regulator';
+    // Vitalis flags
+    case 'legal_compliance_action':
+      return 'legal';
+    case 'state_case_management':
+      return 'state';
+    case 'ltc_carrier_communication':
+      return 'LTC carrier';
+    case 'new_prospect_intake':
+      return 'new prospect';
+    case 'priority_sender':
+      return 'priority';
+    default:
+      return null;
   }
-  if (item.system_flag === 'regulator_staff_communication') {
-    return 'regulator';
+}
+
+// v0.1.6 — pick the right "Open in X" affordance based on the item's
+// source. Gmail supports per-thread deep-linking (unlike Zoho), so the
+// title attribute is more accurate for Vitalis items.
+function openInLabel(item) {
+  if (item.source === 'gmail_vitalis') return 'Open in Gmail →';
+  return 'Open in Zoho →';
+}
+function openInTitle(item) {
+  if (item.source === 'gmail_vitalis') {
+    return 'Opens this email thread in Gmail in a new tab.';
   }
-  return null;
+  return 'Opens your Zoho inbox in a new tab. Search by subject to find this email.';
 }
 
 const CATEGORY_LABELS = {
@@ -262,14 +312,16 @@ function BriefItem({ item }) {
               target="_blank"
               rel="noopener noreferrer"
               className="manna-brief-open-zoho"
-              title="Opens your Zoho inbox in a new tab. Search by subject to find this email."
+              title={openInTitle(item)}
             >
-              Open in Zoho →
+              {openInLabel(item)}
             </a>
           </>
         ) : null}
       </div>
-      {/* v0.1.5.1 — Done + Schedule only. Delegate dropped. */}
+      {/* v0.1.5.1 — Done + Schedule only. Delegate dropped.
+          v0.1.6 — works identically for Vitalis items; actions table
+          is source-agnostic. */}
       <BriefItemActions item={item} />
     </div>
   );
@@ -287,7 +339,10 @@ function BriefCategory({ category, items }) {
   );
 }
 
-function BriefSection({ groups, hadError }) {
+// v0.1.6 — `label` and `emptyMessage` parameterized so the same
+// component renders both the Transworld brief and the Vitalis brief
+// with appropriate framing.
+function BriefSection({ groups, hadError, label, emptyMessage }) {
   const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
   if (total === 0) {
     return (
@@ -295,14 +350,14 @@ function BriefSection({ groups, hadError }) {
         <p className="manna-brief-empty-note">
           {hadError
             ? 'The inbox could not be reached this morning.'
-            : 'Nothing in the inbox this morning that needs you.'}
+            : emptyMessage}
         </p>
       </section>
     );
   }
   return (
     <section className="manna-brief manna-brief-populated">
-      <div className="manna-brief-label">The brief</div>
+      <div className="manna-brief-label">{label}</div>
       {groups.map(([cat, items]) => (
         <BriefCategory key={cat} category={cat} items={items} />
       ))}
@@ -391,17 +446,24 @@ export default async function MannaPage() {
     // Leave devotional null — handled gracefully below.
   }
 
-  // v0.1.5.1 — the brief generation + read flow. Owner-only; reader
-  // sees the devotional alone. We no longer fetch delegate_recipients
-  // here since the Delegate UI was removed.
-  let briefGroups = groupByCategory([]);
+  // v0.1.5.1 / v0.1.6 — brief generation + read for both sources.
+  // Owner-only; reader sees the devotional alone. A single /api/brief
+  // call triggers both Transworld and Vitalis generations server-side.
+  let transworldGroups = groupByCategory([]);
+  let vitalisGroups = groupByCategory([]);
   let briefError = null;
   if (user.role === 'owner') {
     const briefGen = await ensureTodaysBriefViaApi();
     briefError = briefGen.error;
     try {
-      const items = await readTodaysBriefForOwner(user);
-      briefGroups = groupByCategory(items);
+      const transworldItems = await readTodaysBriefForOwner(user);
+      transworldGroups = groupByCategory(transworldItems);
+    } catch (e) {
+      briefError = briefError || e.message;
+    }
+    try {
+      const vitalisItems = await readTodaysVitalisBriefForOwner(user);
+      vitalisGroups = groupByCategory(vitalisItems);
     } catch (e) {
       briefError = briefError || e.message;
     }
@@ -466,8 +528,23 @@ export default async function MannaPage() {
 
       {user.role === 'owner' && (
         <>
+          {/* Transworld brief */}
           <div className="manna-divider" />
-          <BriefSection groups={briefGroups} hadError={Boolean(briefError)} />
+          <BriefSection
+            groups={transworldGroups}
+            hadError={Boolean(briefError)}
+            label="The brief"
+            emptyMessage="Nothing in the inbox this morning that needs you."
+          />
+
+          {/* v0.1.6 — Vitalis brief, parallel section */}
+          <div className="manna-divider" />
+          <BriefSection
+            groups={vitalisGroups}
+            hadError={Boolean(briefError)}
+            label="The Vitalis brief"
+            emptyMessage="Nothing in the Vitalis inbox this morning that needs you."
+          />
         </>
       )}
 
