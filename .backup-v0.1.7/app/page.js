@@ -17,7 +17,6 @@ import {
 } from '@/lib/brief-reads';
 import Fums from '@/components/Fums';
 import BriefItemActions from '@/components/BriefItemActions';
-import ReflectionNote from '@/components/ReflectionNote';
 
 // Manna's single page.
 //
@@ -285,14 +284,9 @@ function BriefItem({ item }) {
     <div className="manna-brief-item" data-state={stateAttr}>
       {flagTag ? <span className="manna-brief-flag">{flagTag}</span> : null}
       <div className="manna-brief-synthesis">{item.synthesis}</div>
-      {/* v0.1.7.1 — when state='done' and there's a note, show the
-          note in place of the body excerpt. The body excerpt is "what
-          the email said"; the note is "what I did about it." Once
-          Done, the note is the relevant context. Falls back to the
-          body excerpt for items with no done note. */}
-      {item.state === 'done' && item.done_note ? (
-        <div className="manna-brief-done-note">{item.done_note}</div>
-      ) : item.body_excerpt ? (
+      {/* v0.1.5.1 — raw body excerpt between synthesis and meta. CSS
+          line-clamps to a few lines so long emails don't dominate. */}
+      {item.body_excerpt ? (
         <div className="manna-brief-excerpt">{item.body_excerpt}</div>
       ) : null}
       <div className="manna-brief-meta">
@@ -510,12 +504,6 @@ export default async function MannaPage() {
             <FurtherReading
               links={todaysPassage ? todaysPassage.further_reading : []}
             />
-            {/* v0.1.7.1 — the user's margin note for today. Owner-only;
-                readers never see this. Sits at the end of the devotional
-                section, before the divider that introduces the brief. */}
-            {user.role === 'owner' && devotional.date ? (
-              <ReflectionNote date={devotional.date} />
-            ) : null}
           </>
         ) : (
           <div className="manna-setup manna-devotional-pending">
@@ -572,8 +560,6 @@ export default async function MannaPage() {
 
       <footer className="manna-footer">
         <span>Manna · Word before work.</span>
-        {' · '}
-        <Link href="/days" className="manna-footer-link">Past devotionals</Link>
         {' · '}
         <form action="/api/auth/logout" method="POST" className="manna-logout-form">
           <button type="submit" className="manna-logout">Sign out</button>

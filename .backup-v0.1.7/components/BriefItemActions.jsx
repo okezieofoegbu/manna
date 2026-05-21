@@ -2,13 +2,29 @@
 
 // components/BriefItemActions.jsx
 //
-// v0.1.7 — Done + Add to ToDo (Schedule removed from UI).
-// v0.1.7.1 — small additions:
-//   - "undo" link next to the state chip on actioned items.
-//   - When state='done' and done_note is present, show the note in
-//     the chip area in italic (handled in the page render below the
-//     synthesis; this component is only responsible for the chip +
-//     undo affordance).
+// v0.1.7 — the brief becomes a triage surface. Two actions:
+//
+//   Done       — mark this item handled (with optional note).
+//                Same expand-panel pattern as v0.1.5.1: the note is
+//                a quiet audit trail for "delegated to Joseph by
+//                phone", "replied directly", etc. Optional.
+//
+//   Add to ToDo — single click. Copies the synthesis into a row in
+//                the todos table and marks this brief item as
+//                state='added_to_todo'. The work moves to /todo,
+//                accessed via "Continue to your ToDo →" at the end
+//                of the Vitalis brief.
+//
+// What changed from v0.1.5.1:
+//   - Schedule (Google Calendar event creation) removed from the UI.
+//     The /api/actions/schedule route remains as dead code; we may
+//     resurrect it inside the ToDo page later. Same approach as
+//     v0.1.5.1's removal of Delegate.
+//
+//   - Why: in practice, "what should I block time for?" is a
+//     decision the morning doesn't have context for. The brief is
+//     for triage (signal vs noise); the ToDo is for planning (when,
+//     who, how long) — done later with the full day in view.
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,22 +36,13 @@ const STATE_LABELS = {
   added_to_todo: 'Added',
 };
 
-function ItemStateChip({ state, onUndo, pending }) {
+function ItemStateChip({ state }) {
   const label = STATE_LABELS[state] || state;
   return (
     <div className="manna-action-state">
       <span className="manna-action-state-chip" data-state={state}>
         {label}
       </span>
-      <button
-        type="button"
-        className="manna-action-undo"
-        onClick={onUndo}
-        disabled={pending}
-        aria-label="Undo"
-      >
-        undo
-      </button>
     </div>
   );
 }
@@ -47,36 +54,11 @@ export default function BriefItemActions({ item }) {
   const [error, setError] = useState(null);
   const [note, setNote] = useState('');
 
-  async function submitUndo() {
-    if (pending) return;
-    setPending(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/actions/undo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief_item_id: item.id }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.ok) {
-        throw new Error(json.detail || json.error || `HTTP ${res.status}`);
-      }
-      router.refresh();
-    } catch (e) {
-      setError(e.message);
-      setPending(false);
-    }
-  }
-
-  // Already-actioned items show the chip + undo. Tomorrow's brief
-  // filters by date so these don't reappear.
+  // Already-actioned items show a chip and no controls. Tomorrow's brief
+  // will exclude them automatically (date-filtered query). The chip's
+  // visual treatment (dim + label) signals "handled this morning."
   if (item.state && item.state !== 'new') {
-    return (
-      <>
-        <ItemStateChip state={item.state} onUndo={submitUndo} pending={pending} />
-        {error && <div className="manna-action-error">{error}</div>}
-      </>
-    );
+    return <ItemStateChip state={item.state} />;
   }
 
   function toggle(panel) {
@@ -108,6 +90,10 @@ export default function BriefItemActions({ item }) {
   }
 
   async function submitAddToTodo() {
+    // One-click action — no expand panel. The synthesis becomes the
+    // todo title verbatim. If wording is wrong, the user deletes the
+    // todo on /todo and re-creates it manually; an inline edit on the
+    // brief is deliberately out of scope for v0.1.7.
     if (pending) return;
     setPending(true);
     setError(null);
