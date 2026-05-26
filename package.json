@@ -1,6 +1,6 @@
 {
   "name": "manna",
-  "version": "0.1.6",
+  "version": "0.1.8.2",
   "private": true,
   "description": "Manna — Word before work.",
   "scripts": {
@@ -10,11 +10,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.65.0",
+    "@supabase/supabase-js": "2.48.1",
+    "@vercel/og": "^0.11.1",
     "next": "15.5.18",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "@supabase/supabase-js": "2.48.1",
-    "@anthropic-ai/sdk": "0.65.0"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "eslint": "9.18.0",
