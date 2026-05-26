@@ -2,44 +2,20 @@
 
 // components/ShareButton.jsx
 //
-// "Share this morning" button. v0.1.8.4.
+// "Share this morning" button. v0.1.8.2.
 //
 // Owner-only (parent is responsible for not rendering this for readers
 // — see app/page.js where it's gated by user.role === 'owner').
 //
-// Tap behavior (v0.1.8.4):
+// Tap behavior:
 //   1. Fetch /api/devotional/image/[date] as a PNG blob.
-//   2. Detect whether the primary input is touch (mobile / touch tablet)
-//      or pointer (desktop / laptop).
-//   3. Mobile / touch-primary → Web Share API (AirDrop, iMessage, etc.).
-//   4. Desktop → direct download to ~/Downloads (or browser equivalent).
-//   5. If Web Share is attempted on touch but fails (other than user
-//      cancellation), fall through to download.
-//
-// Why the platform check:
-//   v0.1.8.2 used `navigator.canShare({ files: [file] })` as the only
-//   gate. That returns true on Mac Chrome too, so desktop users got
-//   the macOS share sheet (AirDrop / Messages / Notes) instead of a
-//   plain download. v0.1.8.4 adds matchMedia('(pointer: coarse)') to
-//   distinguish touch-primary devices from mouse-primary ones, so
-//   each gets the path they actually want.
+//   2. Try the Web Share API with files (works on iOS Safari, modern
+//      Android Chrome, and some desktop browsers).
+//   3. Fall back to a direct download if Web Share isn't available.
 //
 // Disabled and shows "Preparing…" while the image is being fetched.
 
 import { useState } from 'react';
-
-// Returns true when the user agent's PRIMARY input device is touch
-// (phones, most tablets), false on desktops/laptops with mouse or
-// trackpad. SSR-safe: returns false when window is undefined.
-function isTouchPrimary() {
-  if (typeof window === 'undefined') return false;
-  if (typeof window.matchMedia !== 'function') return false;
-  try {
-    return window.matchMedia('(pointer: coarse)').matches;
-  } catch {
-    return false;
-  }
-}
 
 export default function ShareButton({ date }) {
   const [busy, setBusy] = useState(false);
@@ -49,6 +25,7 @@ export default function ShareButton({ date }) {
     if (busy) return;
     setError(null);
     setBusy(true);
+
     try {
       const res = await fetch(`/api/devotional/image/${date}`, {
         method: 'GET',
@@ -62,12 +39,9 @@ export default function ShareButton({ date }) {
       const filename = `manna-${date}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
 
-      // v0.1.8.4 — only attempt Web Share API when the primary input
-      // is touch. This avoids Mac/Windows Chrome routing to the
-      // share sheet just because navigator.canShare returns true.
-      const touchPrimary = isTouchPrimary();
+      // Try Web Share API with files (mobile-first, but increasingly
+      // supported on desktop too).
       const canShareFile =
-        touchPrimary &&
         typeof navigator !== 'undefined' &&
         typeof navigator.canShare === 'function' &&
         navigator.canShare({ files: [file] });
@@ -89,7 +63,7 @@ export default function ShareButton({ date }) {
         }
       }
 
-      // Desktop (or touch-device fallback): trigger a download.
+      // Desktop fallback: trigger a download.
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
