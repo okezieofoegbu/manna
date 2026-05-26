@@ -1,27 +1,30 @@
 // app/api/devotional/image/[date]/route.js
 //
 // GET /api/devotional/image/[date]
-// Owner-only. v0.1.8.3.1 — image frame height bumped 1800 → 2000.
+// Owner-only. v0.1.8.2.1 — fixed font loading.
 //
 // Generates a PNG share image of the devotional for the given date.
 // Returns 404 if no devotional exists for that date, 401/403 for auth,
 // image bytes on success.
 //
-// Image is 1200x2000 portrait, warm-gradient background, justified body
+// Image is 1200x1800 portrait, warm-gradient background, justified body
 // with bold-italic emphasis on *...* segments. The reflection note
 // (devotional_days.reflection_note) is NEVER read or rendered — it is
 // private to the owner.
 //
-// v0.1.8.3 → v0.1.8.3.1 change:
-// Only the ImageResponse height changes (1800 → 2000). All other
-// route logic — auth, SELECT (no reflection_note), font fetching,
-// error handling — is identical to v0.1.8.2.1.
+// v0.1.8.2 → v0.1.8.2.1 change:
+//   v0.1.8.2 bundled Lora-Variable.ttf and Lora-Italic-Variable.ttf at
+//   public/fonts/ and read them via fs.readFileSync. This failed in
+//   production with "Cannot read properties of undefined (reading
+//   '256')" — satori (inside @vercel/og) does not parse TrueType
+//   variable fonts; it requires static single-weight fonts.
 //
-// v0.1.8.2.1 baseline (unchanged):
-// Lora static .ttf files fetched at request time from cyrealtype/
-// Lora-Cyrillic (Google Fonts upstream). Cached at module scope.
-// First request after cold start pays ~200-500ms; subsequent
-// requests reuse the cached ArrayBuffers.
+//   v0.1.8.2.1 fetches static Lora .ttf files from a public URL at
+//   request time. Vercel's edge cache means the fetch is one-time per
+//   region. Source URLs are pinned to the Google Fonts repository.
+//
+//   Files at public/fonts/ from v0.1.8.2 are no longer used — the
+//   deploy script removes them.
 
 import { ImageResponse } from 'next/og';
 import { NextResponse } from 'next/server';
@@ -31,12 +34,21 @@ import { ShareImage } from '@/lib/share-image';
 
 export const runtime = 'nodejs';
 
+// Pinned to the cyrealtype/Lora-Cyrillic upstream repo (Google Fonts'
+// declared upstream for Lora). Pulling the static .ttf files at known
+// commit tags would be more durable; for now we pin to main since
+// these files are append-only stable. Three static weights satori
+// needs: regular 400, italic 400, bold-italic 700.
 const FONT_URLS = {
   regular: 'https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/main/fonts/ttf/Lora-Regular.ttf',
   italic: 'https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/main/fonts/ttf/Lora-Italic.ttf',
   boldItalic: 'https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/main/fonts/ttf/Lora-BoldItalic.ttf',
 };
 
+// Cache the loaded fonts in module scope. First request after a cold
+// start pays the fetch cost (~200-500ms across three small files in
+// parallel); subsequent requests in the same warm instance reuse the
+// cached ArrayBuffers.
 let cachedFonts = null;
 async function loadFonts() {
   if (cachedFonts) return cachedFonts;
@@ -68,6 +80,7 @@ function isValidDate(s) {
   return d.toISOString().slice(0, 10) === s;
 }
 
+// Render "Tuesday, May 26, 2026" from "2026-05-26", TZ-safe.
 function formatLongDate(yyyyMmDd) {
   const d = new Date(`${yyyyMmDd}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return yyyyMmDd;
@@ -80,6 +93,7 @@ function formatLongDate(yyyyMmDd) {
   });
 }
 
+// Compute "morning N" for the given date within its theme.
 async function getMorningCountForDate(supa, themeId, date) {
   try {
     const { count, error } = await supa
@@ -177,10 +191,10 @@ export async function GET(request, { params }) {
       ),
       {
         width: 1200,
-        height: 2000,
+        height: 1800,
         fonts: [
-          { name: 'Lora', data: fonts.regular, style: 'normal', weight: 400 },
-          { name: 'Lora', data: fonts.italic, style: 'italic', weight: 400 },
+          { name: 'Lora', data: fonts.regular,    style: 'normal', weight: 400 },
+          { name: 'Lora', data: fonts.italic,     style: 'italic', weight: 400 },
           { name: 'Lora', data: fonts.boldItalic, style: 'italic', weight: 700 },
         ],
         headers: {
