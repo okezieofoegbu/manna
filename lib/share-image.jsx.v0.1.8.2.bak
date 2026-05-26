@@ -1,32 +1,20 @@
 // lib/share-image.jsx
 //
-// The JSX component @vercel/og renders into the share PNG. v0.1.8.2.2.
+// The JSX component @vercel/og renders into the share PNG. v0.1.8.2.
 //
 // Design — locked from the mockup:
 //   1200x1800 portrait, warm gradient cream→deeper-cream, centered
-//   header, date and theme line, passage reference, centered passage
-//   italic, small centered rule, reflection body with bold-italic
-//   emphasis on *...* segments, footer.
+//   header (Manna · Word before work · amber rule · date and theme
+//   · passage reference · centered passage italic · small centered
+//   rule · justified reflection body with bold-italic emphasis on
+//   *...* segments · footer).
 //
-// v0.1.8.2.1 → v0.1.8.2.2 change:
-//   v0.1.8.2 used `display: 'block'` for paragraph divs containing
-//   multiple <span> children (the emphasis runs). Satori (inside
-//   @vercel/og) rejects any <div> with more than one child unless
-//   it has explicit `display: 'flex'` or `display: 'none'`.
-//
-//   v0.1.8.2.2 changes paragraph divs to `display: 'flex'` with
-//   `flexWrap: 'wrap'` so the spans flow inline and wrap as a
-//   paragraph would. Also tightens the date+theme line to use a
-//   single string instead of three separate text nodes (which can
-//   confuse satori's child-counting logic).
-//
-// Satori CSS rules followed throughout:
-//   - Every <div> with multiple children has explicit display:'flex'.
-//   - Inline styles only, no className.
-//   - Width and height required on root.
-//   - The asterisk-emphasis parser mirrors renderInline() in
-//     app/page.js so the bold-italic phrasing stays consistent
-//     between the live page and the share image.
+// IMPORTANT: @vercel/og uses satori under the hood, which supports a
+// subset of CSS. Inline styles only, no className. Flex must specify
+// display:'flex' when a node has multiple children. Width and height
+// required on root. The asterisk-emphasis parser mirrors the shape
+// of renderInline() in app/page.js so the bold-italic phrasing
+// stays consistent between the live page and the share image.
 
 import React from 'react';
 
@@ -89,12 +77,8 @@ export function ShareImage({
 }) {
   const paragraphs = splitParagraphs(reflection);
   const passageClean = stripVerseBrackets(passageText);
-  const themeLineText =
+  const themeLine =
     morningCount > 0 ? `${themeName} — morning ${morningCount}` : themeName;
-  // v0.1.8.2.2 — concatenate into a single string so the date+theme
-  // div has exactly one text-node child.
-  const dateThemeLine = `${longDate}   ·   ${themeLineText}`;
-  const passageRefUpper = (passageReference || '').toUpperCase();
 
   return (
     <div
@@ -110,8 +94,7 @@ export function ShareImage({
         position: 'relative',
       }}
     >
-      {/* Soft top glow — faint radial gradient suggesting dawn light.
-          Single-child (none) so display:'flex' is for satori; no children to lay out. */}
+      {/* Soft top glow — faint radial gradient suggesting dawn light */}
       <div
         style={{
           position: 'absolute',
@@ -125,7 +108,7 @@ export function ShareImage({
         }}
       />
 
-      {/* Header: Manna · Word before work · amber rule (3 children) */}
+      {/* Header: Manna · Word before work · amber rule */}
       <div
         style={{
           display: 'flex',
@@ -134,16 +117,13 @@ export function ShareImage({
           marginBottom: 40,
         }}
       >
-        <div style={{ fontSize: 38, color: COLORS.ink, marginBottom: 6, display: 'flex' }}>
-          Manna
-        </div>
+        <div style={{ fontSize: 38, color: COLORS.ink, marginBottom: 6 }}>Manna</div>
         <div
           style={{
             fontSize: 24,
             color: COLORS.inkSoft,
             fontStyle: 'italic',
             marginBottom: 20,
-            display: 'flex',
           }}
         >
           Word before work.
@@ -158,7 +138,7 @@ export function ShareImage({
         />
       </div>
 
-      {/* Date and theme line — single text child */}
+      {/* Date and theme line */}
       <div
         style={{
           display: 'flex',
@@ -168,10 +148,10 @@ export function ShareImage({
           marginBottom: 50,
         }}
       >
-        {dateThemeLine}
+        {longDate}   ·   {themeLine}
       </div>
 
-      {/* Passage reference — single text child */}
+      {/* Passage reference */}
       <div
         style={{
           display: 'flex',
@@ -182,10 +162,10 @@ export function ShareImage({
           marginBottom: 40,
         }}
       >
-        {passageRefUpper}
+        {(passageReference || '').toUpperCase()}
       </div>
 
-      {/* Passage text — single text child */}
+      {/* Passage text — centered, italic */}
       <div
         style={{
           display: 'flex',
@@ -202,7 +182,7 @@ export function ShareImage({
         {passageClean}
       </div>
 
-      {/* Small centered rule — no children */}
+      {/* Small centered rule */}
       <div
         style={{
           display: 'flex',
@@ -214,7 +194,7 @@ export function ShareImage({
         }}
       />
 
-      {/* Reflection body — column of paragraph blocks */}
+      {/* Reflection body — justified, with emphasis runs */}
       <div
         style={{
           display: 'flex',
@@ -227,14 +207,12 @@ export function ShareImage({
         {paragraphs.map((para, i) => {
           const runs = parseRuns(para);
           return (
-            // v0.1.8.2.2 — display:'flex' with flexWrap:'wrap'.
-            // Lets the emphasis spans flow inline and wrap as text.
             <div
               key={i}
               style={{
-                display: 'flex',
-                flexWrap: 'wrap',
+                display: 'block',
                 marginBottom: 26,
+                textAlign: 'justify',
               }}
             >
               {runs.map((run, j) => (
@@ -243,9 +221,6 @@ export function ShareImage({
                   style={{
                     fontStyle: run.emphasis ? 'italic' : 'normal',
                     fontWeight: run.emphasis ? 700 : 400,
-                    // Preserve the literal whitespace between runs so words
-                    // don't collide when satori lays them out.
-                    whiteSpace: 'pre-wrap',
                   }}
                 >
                   {run.text}
@@ -256,7 +231,7 @@ export function ShareImage({
         })}
       </div>
 
-      {/* Footer pinned at the bottom — single text child */}
+      {/* Footer pinned at the bottom */}
       <div
         style={{
           position: 'absolute',
