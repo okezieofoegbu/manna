@@ -1,7 +1,7 @@
 // app/api/devotional/image/[date]/route.js
 //
 // GET /api/devotional/image/[date]
-// Owner-only. v0.1.8.2.1 — fixed font loading.
+// Owner-only. v0.1.8.2.
 //
 // Generates a PNG share image of the devotional for the given date.
 // Returns 404 if no devotional exists for that date, 401/403 for auth,
@@ -12,61 +12,32 @@
 // (devotional_days.reflection_note) is NEVER read or rendered — it is
 // private to the owner.
 //
-// v0.1.8.2 → v0.1.8.2.1 change:
-//   v0.1.8.2 bundled Lora-Variable.ttf and Lora-Italic-Variable.ttf at
-//   public/fonts/ and read them via fs.readFileSync. This failed in
-//   production with "Cannot read properties of undefined (reading
-//   '256')" — satori (inside @vercel/og) does not parse TrueType
-//   variable fonts; it requires static single-weight fonts.
+// Fonts: Lora (regular + italic, variable) bundled at public/fonts/.
+// Uses Node runtime (not edge) so fs.readFileSync can load the font
+// files. The fonts are read once at module init and cached.
 //
-//   v0.1.8.2.1 fetches static Lora .ttf files from a public URL at
-//   request time. Vercel's edge cache means the fetch is one-time per
-//   region. Source URLs are pinned to the Google Fonts repository.
-//
-//   Files at public/fonts/ from v0.1.8.2 are no longer used — the
-//   deploy script removes them.
+// Mirrors the join shape from app/days/[date]/page.js so the data
+// access pattern stays consistent across the surface.
 
 import { ImageResponse } from 'next/og';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase';
 import { ShareImage } from '@/lib/share-image';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export const runtime = 'nodejs';
 
-// Pinned to the cyrealtype/Lora-Cyrillic upstream repo (Google Fonts'
-// declared upstream for Lora). Pulling the static .ttf files at known
-// commit tags would be more durable; for now we pin to main since
-// these files are append-only stable. Three static weights satori
-// needs: regular 400, italic 400, bold-italic 700.
-const FONT_URLS = {
-  regular: 'https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/main/fonts/ttf/Lora-Regular.ttf',
-  italic: 'https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/main/fonts/ttf/Lora-Italic.ttf',
-  boldItalic: 'https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/main/fonts/ttf/Lora-BoldItalic.ttf',
-};
-
-// Cache the loaded fonts in module scope. First request after a cold
-// start pays the fetch cost (~200-500ms across three small files in
-// parallel); subsequent requests in the same warm instance reuse the
-// cached ArrayBuffers.
+// Cache the loaded fonts at module scope so they only read from disk once
+// per server instance.
 let cachedFonts = null;
-async function loadFonts() {
+function loadFonts() {
   if (cachedFonts) return cachedFonts;
-  const [regular, italic, boldItalic] = await Promise.all([
-    fetch(FONT_URLS.regular).then((r) => {
-      if (!r.ok) throw new Error(`Lora-Regular fetch failed: ${r.status}`);
-      return r.arrayBuffer();
-    }),
-    fetch(FONT_URLS.italic).then((r) => {
-      if (!r.ok) throw new Error(`Lora-Italic fetch failed: ${r.status}`);
-      return r.arrayBuffer();
-    }),
-    fetch(FONT_URLS.boldItalic).then((r) => {
-      if (!r.ok) throw new Error(`Lora-BoldItalic fetch failed: ${r.status}`);
-      return r.arrayBuffer();
-    }),
-  ]);
-  cachedFonts = { regular, italic, boldItalic };
+  const fontsDir = join(process.cwd(), 'public', 'fonts');
+  const regular = readFileSync(join(fontsDir, 'Lora-Regular.ttf'));
+  const italic = readFileSync(join(fontsDir, 'Lora-Italic.ttf'));
+  cachedFonts = { regular, italic };
   return cachedFonts;
 }
 
@@ -93,7 +64,10 @@ function formatLongDate(yyyyMmDd) {
   });
 }
 
-// Compute "morning N" for the given date within its theme.
+// Compute "morning N" for the given date within its theme. For today's
+// devotional this matches getThemeMorningCount(); for a past day we
+// count how many devotional_days rows exist for the same theme up to
+// and including this date. Returns 0 on any error.
 async function getMorningCountForDate(supa, themeId, date) {
   try {
     const { count, error } = await supa
@@ -126,8 +100,9 @@ export async function GET(request, { params }) {
     );
   }
 
-  // Mirror of the join shape from app/days/[date]/page.js, WITHOUT
-  // reflection_note. The note is private to the owner.
+  // Fetch the devotional day — same join shape as app/days/[date]/page.js
+  // but WITHOUT reflection_note. The note is private to the owner and
+  // never appears on the share image.
   const supa = getServiceClient();
   const { data: day, error } = await supa
     .from('devotional_days')
@@ -164,7 +139,7 @@ export async function GET(request, { params }) {
 
   let fonts;
   try {
-    fonts = await loadFonts();
+    fonts = loadFonts();
   } catch (e) {
     console.error('[image route] font load failed:', e);
     return NextResponse.json(
@@ -193,12 +168,13 @@ export async function GET(request, { params }) {
         width: 1200,
         height: 1800,
         fonts: [
-          { name: 'Lora', data: fonts.regular,    style: 'normal', weight: 400 },
-          { name: 'Lora', data: fonts.italic,     style: 'italic', weight: 400 },
-          { name: 'Lora', data: fonts.boldItalic, style: 'italic', weight: 700 },
+          { name: 'Lora', data: fonts.regular, style: 'normal', weight: 400 },
+          { name: 'Lora', data: fonts.regular, style: 'normal', weight: 700 },
+          { name: 'Lora', data: fonts.italic,  style: 'italic', weight: 400 },
+          { name: 'Lora', data: fonts.italic,  style: 'italic', weight: 700 },
         ],
         headers: {
-          // Don't cache the image — owner fetches once per day.
+          // Don't cache — owner fetches once per day, server-side cost is trivial.
           'Cache-Control': 'private, max-age=0, no-store',
         },
       },
