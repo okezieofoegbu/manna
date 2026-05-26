@@ -1,53 +1,32 @@
 // lib/share-image.jsx
 //
-// The JSX component @vercel/og renders into the share PNG. v0.1.8.3.
+// The JSX component @vercel/og renders into the share PNG. v0.1.8.2.2.
 //
-// Design — based on the v0.1.8.2 mockup (Python PIL aspirational
-// layout). Satori (the layout engine inside @vercel/og) has stricter
-// CSS than browsers; v0.1.8.3 works around two known satori quirks
-// while preserving the design.
+// Design — locked from the mockup:
+//   1200x1800 portrait, warm gradient cream→deeper-cream, centered
+//   header, date and theme line, passage reference, centered passage
+//   italic, small centered rule, reflection body with bold-italic
+//   emphasis on *...* segments, footer.
 //
-// 1200x1800 portrait, warm gradient cream→deeper-cream, centered
-// header, date and theme line, passage reference, centered passage
-// italic, small centered rule, reflection body with bold-italic
-// emphasis on *...* segments (flowing inline word-by-word), footer.
+// v0.1.8.2.1 → v0.1.8.2.2 change:
+//   v0.1.8.2 used `display: 'block'` for paragraph divs containing
+//   multiple <span> children (the emphasis runs). Satori (inside
+//   @vercel/og) rejects any <div> with more than one child unless
+//   it has explicit `display: 'flex'` or `display: 'none'`.
 //
-// v0.1.8.2.2 → v0.1.8.3 changes:
-//
-// 1. Reflection paragraphs use word-by-word flex spans instead of
-//    one-span-per-emphasis-run. v0.1.8.2.2 made each *...* run a
-//    single span, which satori treated as one atomic flex item —
-//    when a run was wider than the remaining line space, the whole
-//    phrase snapped to its own line. By splitting each run into
-//    individual word-tokens (each carrying its run's emphasis flag),
-//    every flex item is one-word-wide, and flexWrap flows them as
-//    paragraph text would.
-//
-// 2. flexShrink: 0 added to the passage block, the small rule
-//    between passage and reflection, and the reflection body
-//    container. Under flex column layout satori was compressing
-//    upper items to fit lower content; the explicit flexShrink: 0
-//    pins each element to its natural size and stops the overlap.
-//
-// 3. Passage marginBottom bumped from 50 to 70 for more visual
-//    breathing room above the reflection (belt-and-braces reinforcing
-//    the flexShrink: 0 fix).
-//
-// HONEST NOTE — the inline emphasis pattern in (1) is an experiment.
-// The v0.1.8.2 mockup that motivated this design was rendered by
-// Python PIL, not by satori, so the inline-flow look has never been
-// proven in production. If v0.1.8.3 still breaks emphasis to its
-// own line on Vercel, v0.1.8.4 falls back to dropping asterisk
-// emphasis from the image entirely (the live page render keeps it).
+//   v0.1.8.2.2 changes paragraph divs to `display: 'flex'` with
+//   `flexWrap: 'wrap'` so the spans flow inline and wrap as a
+//   paragraph would. Also tightens the date+theme line to use a
+//   single string instead of three separate text nodes (which can
+//   confuse satori's child-counting logic).
 //
 // Satori CSS rules followed throughout:
-// - Every <div> with multiple children has explicit display:'flex'.
-// - Inline styles only, no className.
-// - Width and height required on root.
-// - The asterisk-emphasis parser mirrors renderInline() in
-//   app/page.js so the bold-italic phrasing stays consistent
-//   between the live page and the share image — at the run level.
-//   The word-level expansion happens only at render time.
+//   - Every <div> with multiple children has explicit display:'flex'.
+//   - Inline styles only, no className.
+//   - Width and height required on root.
+//   - The asterisk-emphasis parser mirrors renderInline() in
+//     app/page.js so the bold-italic phrasing stays consistent
+//     between the live page and the share image.
 
 import React from 'react';
 
@@ -100,32 +79,6 @@ function stripVerseBrackets(text) {
   return String(text).replace(/\[\d+\]\s*/g, '').replace(/\s+/g, ' ').trim();
 }
 
-// v0.1.8.3 — Expand runs into word-tokens for satori inline flow.
-// Each token is "word " (non-whitespace followed by optional trailing
-// whitespace). Each token carries the emphasis flag of its parent run,
-// so emphasis renders correctly even though the run is now multiple
-// flex items.
-//
-// The trailing space is rendered via whiteSpace: 'pre' on the span,
-// which gives satori the correct inter-word gap. When a token wraps
-// to a new line via flexWrap, the trailing space sits at the line
-// break — invisible to the eye.
-function tokenizeRunsToWords(runs) {
-  const words = [];
-  runs.forEach((run, runIdx) => {
-    // Match non-whitespace sequence followed by optional whitespace.
-    const tokens = run.text.match(/\S+\s*/g) || [];
-    tokens.forEach((token, tokenIdx) => {
-      words.push({
-        text: token,
-        emphasis: run.emphasis,
-        key: `${runIdx}-${tokenIdx}`,
-      });
-    });
-  });
-  return words;
-}
-
 export function ShareImage({
   longDate,
   themeName,
@@ -138,9 +91,9 @@ export function ShareImage({
   const passageClean = stripVerseBrackets(passageText);
   const themeLineText =
     morningCount > 0 ? `${themeName} — morning ${morningCount}` : themeName;
-
-  // Single string so the date+theme div has exactly one text-node child.
-  const dateThemeLine = `${longDate} · ${themeLineText}`;
+  // v0.1.8.2.2 — concatenate into a single string so the date+theme
+  // div has exactly one text-node child.
+  const dateThemeLine = `${longDate}   ·   ${themeLineText}`;
   const passageRefUpper = (passageReference || '').toUpperCase();
 
   return (
@@ -157,7 +110,8 @@ export function ShareImage({
         position: 'relative',
       }}
     >
-      {/* Soft top glow — faint radial gradient suggesting dawn light. */}
+      {/* Soft top glow — faint radial gradient suggesting dawn light.
+          Single-child (none) so display:'flex' is for satori; no children to lay out. */}
       <div
         style={{
           position: 'absolute',
@@ -178,7 +132,6 @@ export function ShareImage({
           flexDirection: 'column',
           alignItems: 'center',
           marginBottom: 40,
-          flexShrink: 0,
         }}
       >
         <div style={{ fontSize: 38, color: COLORS.ink, marginBottom: 6, display: 'flex' }}>
@@ -213,7 +166,6 @@ export function ShareImage({
           fontSize: 24,
           color: COLORS.inkSoft,
           marginBottom: 50,
-          flexShrink: 0,
         }}
       >
         {dateThemeLine}
@@ -228,15 +180,12 @@ export function ShareImage({
           color: COLORS.amber,
           letterSpacing: 2,
           marginBottom: 40,
-          flexShrink: 0,
         }}
       >
         {passageRefUpper}
       </div>
 
-      {/* Passage text — single text child.
-          v0.1.8.3: flexShrink: 0 + marginBottom 70 to prevent satori
-          from collapsing this block under the reflection's pressure. */}
+      {/* Passage text — single text child */}
       <div
         style={{
           display: 'flex',
@@ -246,16 +195,14 @@ export function ShareImage({
           fontSize: 34,
           lineHeight: 1.4,
           maxWidth: 870,
-          marginBottom: 70,
+          marginBottom: 50,
           color: COLORS.ink,
-          flexShrink: 0,
         }}
       >
         {passageClean}
       </div>
 
-      {/* Small centered rule — no children.
-          v0.1.8.3: flexShrink: 0. */}
+      {/* Small centered rule — no children */}
       <div
         style={{
           display: 'flex',
@@ -264,13 +211,10 @@ export function ShareImage({
           height: 1,
           backgroundColor: COLORS.amber,
           marginBottom: 40,
-          flexShrink: 0,
         }}
       />
 
-      {/* Reflection body — column of paragraph blocks.
-          v0.1.8.3: flexShrink: 0 on the container, word-by-word
-          spans inside each paragraph div. */}
+      {/* Reflection body — column of paragraph blocks */}
       <div
         style={{
           display: 'flex',
@@ -278,36 +222,33 @@ export function ShareImage({
           fontSize: 30,
           lineHeight: 1.5,
           color: COLORS.ink,
-          flexShrink: 0,
         }}
       >
         {paragraphs.map((para, i) => {
           const runs = parseRuns(para);
-          const words = tokenizeRunsToWords(runs);
           return (
-            // v0.1.8.3 — paragraph div is flex + flexWrap + flexShrink:0,
-            // children are word-level spans that flow inline.
+            // v0.1.8.2.2 — display:'flex' with flexWrap:'wrap'.
+            // Lets the emphasis spans flow inline and wrap as text.
             <div
               key={i}
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 marginBottom: 26,
-                flexShrink: 0,
               }}
             >
-              {words.map((w) => (
+              {runs.map((run, j) => (
                 <span
-                  key={w.key}
+                  key={j}
                   style={{
-                    fontStyle: w.emphasis ? 'italic' : 'normal',
-                    fontWeight: w.emphasis ? 700 : 400,
-                    // 'pre' preserves the trailing space in each token,
-                    // giving satori the correct inter-word gap.
-                    whiteSpace: 'pre',
+                    fontStyle: run.emphasis ? 'italic' : 'normal',
+                    fontWeight: run.emphasis ? 700 : 400,
+                    // Preserve the literal whitespace between runs so words
+                    // don't collide when satori lays them out.
+                    whiteSpace: 'pre-wrap',
                   }}
                 >
-                  {w.text}
+                  {run.text}
                 </span>
               ))}
             </div>
