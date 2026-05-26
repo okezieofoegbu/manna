@@ -1,59 +1,42 @@
 // lib/share-image.jsx
 //
-// The JSX component @vercel/og renders into the share PNG. v0.1.8.3.2.
+// The JSX component @vercel/og renders into the share PNG. v0.1.8.3.1.
 //
 // Design — based on the v0.1.8.2 mockup (Python PIL aspirational
-// layout), refined through:
-//   v0.1.8.3   — inline *...* emphasis works (word-by-word flex spans)
-//   v0.1.8.3.1 — image height 2000, footer fits, justify not honored
-//                on word-spans
-//   v0.1.8.3.2 — nested-span pattern: paragraph div is block-level
-//                with a single outer-span child holding inline mixed
-//                content. textAlign: 'justify' on the parent div
-//                applies to the inline flow inside the span.
+// layout), refined through v0.1.8.3 (inline emphasis now works) and
+// v0.1.8.3.1 (justified body + taller frame to fit long reflections).
 //
 // 1200x2000 portrait, warm gradient cream→deeper-cream, centered
 // header, date and theme line, passage reference, centered passage
 // italic, small centered rule, reflection body with bold-italic
-// emphasis on *...* segments flowing inline AND justified, footer.
+// emphasis on *...* segments flowing inline word-by-word, justified,
+// footer.
 //
-// v0.1.8.3.1 → v0.1.8.3.2 change:
+// v0.1.8.3 → v0.1.8.3.1 changes:
 //
-// The reflection paragraph rendering switches from word-by-word
-// flex spans to a nested-span inline pattern:
+// 1. Image height bumped 1800 → 2000. v0.1.8.3 on a long reflection
+//    overflowed the 1800px frame; the absolutely-positioned footer
+//    sat on top of the last paragraph. Adding 200px of vertical
+//    room handles the longest reflections we're likely to see.
 //
-//   v0.1.8.3.1 (left-aligned):
-//     <div display:flex flexWrap:wrap>
-//       <span>word1 </span><span>word2 </span> ...
-//     </div>
+// 2. textAlign: 'justify' added to the reflection paragraph divs.
+//    EXPERIMENTAL — satori's flex layout may or may not honor
+//    text-align on a flex container with word-span children. If
+//    satori does honor it, we get justified body text for free.
+//    If not, the layout falls back to left-aligned (same as
+//    v0.1.8.3), which already reads well.
 //
-//   v0.1.8.3.2 (justified):
-//     <div textAlign:justify>          // block-level, ONE child
-//       <span>                         // outer span, inline content
-//         text fragment
-//         <span style={emphasis}>emphasized run</span>
-//         text fragment
-//         ...
-//       </span>
-//     </div>
+// v0.1.8.3 baseline (still in effect):
 //
-// Why this might justify in satori where v0.1.8.3.1 didn't: word-spans
-// were each treated as atomic flex items, and satori's flex layout
-// doesn't honor textAlign:justify on items. The nested-span pattern
-// puts the content inside an inline element (span), so satori's text
-// layout handles it — and text layout DOES honor text-align.
+// - Reflection paragraphs use word-by-word flex spans for inline
+//   emphasis. CONFIRMED WORKING on Vercel — *...* phrases flow
+//   inline with surrounding text instead of breaking as block
+//   fragments. Each word becomes a one-word-wide flex item that
+//   wraps naturally as paragraph text.
 //
-// Constraints that make this satori-legal:
-// - The outer div has exactly ONE child (the outer span), so it does
-//   NOT need display:flex (satori's multi-child rule applies to divs).
-// - The outer span has multiple inline children (strings and nested
-//   spans), but spans are inline-default and don't have the multi-
-//   child flex requirement.
-//
-// If satori does NOT honor textAlign:justify even on this pattern,
-// the layout falls back to a normal inline left-aligned flow. Either
-// way, inline emphasis continues to work — that win from v0.1.8.3
-// is preserved through the structural change.
+// - flexShrink: 0 on passage, small rule, and reflection body.
+//   Prevents satori from compressing upper items to fit lower
+//   content (fixed the passage/body overlap from v0.1.8.2.2).
 //
 // Satori CSS rules followed throughout:
 // - Every <div> with multiple children has explicit display:'flex'.
@@ -61,7 +44,8 @@
 // - Width and height required on root.
 // - The asterisk-emphasis parser mirrors renderInline() in
 //   app/page.js so the bold-italic phrasing stays consistent
-//   between the live page and the share image.
+//   between the live page and the share image — at the run level.
+//   The word-level expansion happens only at render time.
 
 import React from 'react';
 
@@ -112,6 +96,30 @@ function splitParagraphs(reflection) {
 function stripVerseBrackets(text) {
   if (!text) return '';
   return String(text).replace(/\[\d+\]\s*/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Expand runs into word-tokens for satori inline flow. Each token is
+// "word " (non-whitespace followed by optional trailing whitespace).
+// Each token carries the emphasis flag of its parent run, so emphasis
+// renders correctly even though the run is now multiple flex items.
+//
+// The trailing space is rendered via whiteSpace: 'pre' on the span,
+// which gives satori the correct inter-word gap. When a token wraps
+// to a new line via flexWrap, the trailing space sits at the line
+// break — invisible to the eye.
+function tokenizeRunsToWords(runs) {
+  const words = [];
+  runs.forEach((run, runIdx) => {
+    const tokens = run.text.match(/\S+\s*/g) || [];
+    tokens.forEach((token, tokenIdx) => {
+      words.push({
+        text: token,
+        emphasis: run.emphasis,
+        key: `${runIdx}-${tokenIdx}`,
+      });
+    });
+  });
+  return words;
 }
 
 export function ShareImage({
@@ -222,7 +230,7 @@ export function ShareImage({
         {passageRefUpper}
       </div>
 
-      {/* Passage text — single text child. */}
+      {/* Passage text — single text child. flexShrink: 0 + marginBottom 70. */}
       <div
         style={{
           display: 'flex',
@@ -240,7 +248,7 @@ export function ShareImage({
         {passageClean}
       </div>
 
-      {/* Small centered rule. */}
+      {/* Small centered rule. flexShrink: 0. */}
       <div
         style={{
           display: 'flex',
@@ -253,9 +261,7 @@ export function ShareImage({
         }}
       />
 
-      {/* Reflection body — column of paragraph blocks.
-          Block-level paragraphs now (no flex), so inline content
-          inside the outer span can be justified by textAlign. */}
+      {/* Reflection body — column of paragraph blocks. flexShrink: 0. */}
       <div
         style={{
           display: 'flex',
@@ -268,45 +274,41 @@ export function ShareImage({
       >
         {paragraphs.map((para, i) => {
           const runs = parseRuns(para);
+          const words = tokenizeRunsToWords(runs);
           return (
-            // v0.1.8.3.2 — paragraph div is block-level (no display:flex)
-            // with exactly ONE child: the outer span below. textAlign
-            // is justified; the inline content inside the outer span
-            // inherits text-align via standard inline-flow rules.
+            // v0.1.8.3.1 — textAlign: 'justify' added.
+            // Experimental: satori may or may not honor it on a flex
+            // container with word-span children. If yes, justified
+            // body text. If no, falls back to left-aligned.
             <div
               key={i}
               style={{
+                display: 'flex',
+                flexWrap: 'wrap',
                 marginBottom: 26,
                 flexShrink: 0,
                 textAlign: 'justify',
               }}
             >
-              <span>
-                {runs.map((run, j) =>
-                  run.emphasis ? (
-                    <span
-                      key={j}
-                      style={{
-                        fontStyle: 'italic',
-                        fontWeight: 700,
-                      }}
-                    >
-                      {run.text}
-                    </span>
-                  ) : (
-                    // Plain run rendered as a string — becomes a text
-                    // node child of the outer span, allowing inline
-                    // flow with the emphasis spans around it.
-                    run.text
-                  ),
-                )}
-              </span>
+              {words.map((w) => (
+                <span
+                  key={w.key}
+                  style={{
+                    fontStyle: w.emphasis ? 'italic' : 'normal',
+                    fontWeight: w.emphasis ? 700 : 400,
+                    whiteSpace: 'pre',
+                  }}
+                >
+                  {w.text}
+                </span>
+              ))}
             </div>
           );
         })}
       </div>
 
-      {/* Footer pinned at the bottom — single text child. */}
+      {/* Footer pinned at the bottom — single text child. Anchored to
+          bottom: 60 of the now-2000-tall frame. */}
       <div
         style={{
           position: 'absolute',
