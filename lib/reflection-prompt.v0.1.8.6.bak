@@ -14,7 +14,7 @@
 // reasoning behind the current wording, and the test outputs that shaped it,
 // live in docs/PROMPT_TESTING.md.
 //
-// v1.3 — five constants added or refined:
+// v1.3 — five constants added or refined to the system prompt:
 //   - Pastoral warmth and hopeful uplift (NEW)
 //   - Holy Spirit as present reality, named with conviction (NEW)
 //   - Union with Christ as present reality, not abstract doctrine (NEW)
@@ -22,20 +22,14 @@
 //   - Aphorism rare and earned (REFINED from v1.2)
 //   - Asterisk grammar (*...*) for emphasis spans (carried from v1.2.1)
 //
-// v1.3.1 (v0.1.8.6) — length tightened and reading level anchored:
-//   - Max 4 paragraphs (firm)
-//   - Each paragraph 3 to 5 sentences (too tight, see v1.3.2)
-//   - Grade 11-12 reading level, plain over Latinate
-//
-// v1.3.2 (v0.1.8.7) — paragraph breathing room restored:
-//   - Sentences-per-paragraph cap loosened: 3-5 → 3-7. The 3-5 cap was
-//     clipping paragraphs mid-thought; the regenerated Galatians 2:20
-//     reflection had the right voice but felt "almost saying something
-//     but not really." Doubling the upper end gives the prompt room to
-//     land its thoughts without licensing runaway paragraphs.
-//   - Explicit word target: aim for 350-450 words total. Anchors total
-//     length without micromanaging structure.
-//   - Max paragraph count (4) and reading level (grade 11-12) hold.
+// v1.3.1 (shipped in v0.1.8.6) — two refinements after Galatians 2:20:
+//   - Length tightened: "three to four short paragraphs, each three to
+//     five sentences. Never more than four paragraphs." The original v1.3
+//     reflection ran seven paragraphs; the constant was qualitative and
+//     the model used the extra constants as license to expand.
+//   - Reading level explicitly anchored at 11th–12th grade. Plain,
+//     concrete, sensory English over academic Latinate. Theological
+//     depth stays; the vocabulary that signals depth goes.
 //
 // Returns { promptVersion, system, user } — the contract devotional.js
 // depends on. Do not change this shape.
@@ -43,7 +37,7 @@
 // See STATE_OF_APP.md and PITFALLS.md.
 // =============================================================================
 
-export const PROMPT_VERSION = 'reflection-prompt v1.3.2 (v0.1.8.7)';
+export const PROMPT_VERSION = 'reflection-prompt v1.3.1 (v0.1.8.6)';
 
 // --- The stretch lens is fenced to exactly three traditions ------------------
 // On a `stretch` morning the reflection is written from a tradition the owner
@@ -155,10 +149,14 @@ function lensAccent(lens, morningIndex) {
 // Everything constant across all lenses. The lens accent is appended at the
 // end so the constants are read first and the accent modifies, not replaces.
 //
-// v1.3 ADDS five constants to the v1.2 baseline.
-// v1.3.1 tightens length and anchors reading level.
-// v1.3.2 loosens the sentences-per-paragraph cap (3-5 → 3-7) and adds an
-// explicit 350-450 word total target.
+// v1.3 ADDS five constants to the v1.2 baseline: pastoral warmth, Spirit
+// as present reality, union with Christ as present reality, embodied
+// "if true, then..." invitation, and aphorism rare-and-earned.
+//
+// v1.3.1 TIGHTENS the length constant (3-5 sentences per paragraph, max
+// 4 paragraphs) and ADDS an explicit reading-level constant (grade
+// 11-12, concrete English over academic Latinate). All v1.2 constants
+// remain.
 function systemPrompt(lens, morningIndex) {
   return [
     'You are writing a single morning devotional reflection for Manna — a ' +
@@ -204,10 +202,10 @@ function systemPrompt(lens, morningIndex) {
 
     '- Plain English at roughly an 11th- or 12th-grade reading level. ' +
       'This is the most important style constant after warmth. Short ' +
-      'sentences when they help. Concrete, sensory words over abstract ' +
-      'Latinate ones. Prefer "the words have been turned over for a long ' +
-      'time" to "the words have been the subject of theological exegesis ' +
-      'for centuries." Prefer "the old way of living" to "the old ' +
+      'sentences. Concrete, sensory words over abstract Latinate ones. ' +
+      'Prefer "the words have been turned over for a long time" to ' +
+      '"the words have been the subject of theological exegesis for ' +
+      'centuries." Prefer "the old way of living" to "the old ' +
       'repertoire." Prefer "copy Jesus from the outside" to ' +
       '"approximate Jesus from the outside." The theological depth stays; ' +
       'the academic register goes. A wise pastor talking to a friend ' +
@@ -244,15 +242,12 @@ function systemPrompt(lens, morningIndex) {
       "a paragraph where the passage's heart shows through, not a " +
       'slogan the reader is meant to remember.',
 
-    '- LENGTH IS A HARD CONSTRAINT. Three to four paragraphs. Each ' +
-      'paragraph runs three to seven sentences — paragraphs should be ' +
-      'long enough to develop a thought, not so long that they sprawl. ' +
-      'Aim for 350 to 450 words total across the whole reflection. ' +
-      'Never more than four paragraphs. Never a paragraph longer than ' +
-      "seven sentences. This is the morning's manna: enough for the day, " +
-      'not a feast to be hurried through. If the reflection wants to ' +
-      "keep going past 450 words, that is the reader's own work to do " +
-      'during the day. Leave room.',
+    '- LENGTH IS A HARD CONSTRAINT. Three to four short paragraphs. ' +
+      'Each paragraph is three to five sentences. Never more than four ' +
+      'paragraphs. Never a paragraph longer than five sentences. This ' +
+      "is the morning's manna: enough for the day, not a feast to be " +
+      'hurried through. If the reflection wants to keep going, that is ' +
+      "the reader's own work to do during the day. Leave room.",
 
     '- Shape of the close. The reflection may end with EITHER a single ' +
       'short question to carry into the day, OR a short prayer of two ' +
@@ -321,9 +316,8 @@ function userMessage({
 
     'Write the reflection on this passage now, following every instruction ' +
       'in the system prompt and the lens for today. Honor the length ' +
-      'constraint: three to four paragraphs, each three to seven ' +
-      'sentences, aiming for 350 to 450 words total. Return only the ' +
-      'reflection.',
+      'constraint strictly: never more than four paragraphs, never a ' +
+      'paragraph longer than five sentences. Return only the reflection.',
   ].join('\n\n');
 }
 

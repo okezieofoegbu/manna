@@ -1,48 +1,45 @@
 // lib/share-image.jsx
 //
-// The JSX component @vercel/og renders into the share PNG. v0.1.8.7.
+// The JSX component @vercel/og renders into the share PNG. v0.1.8.6.
 //
 // Design — based on the v0.1.8.2 mockup, refined through:
 //   v0.1.8.3   — inline *...* emphasis works (word-by-word flex spans)
 //   v0.1.8.3.1 — image height 2000, footer fits, justify not honored
+//                on word-spans
 //   v0.1.8.3.2 — nested-span justify attempt, satori 500, rolled back
-//   v0.1.8.6   — fonts +40%, height 2000 → 2400
-//   v0.1.8.7   — fonts +10% more, height 2400 → 2700
+//   v0.1.8.6   — aggressive font bump for phone readability + height 2400
 //
-// 1200x2700 portrait, warm gradient cream→deeper-cream, centered
+// 1200x2400 portrait, warm gradient cream→deeper-cream, centered
 // header, date and theme line, passage reference, centered passage
 // italic, small centered rule, reflection body with bold-italic
 // emphasis on *...* segments flowing inline word-by-word, footer.
 //
-// v0.1.8.6 → v0.1.8.7 changes:
+// v0.1.8.3.1 → v0.1.8.6 changes:
 //
-// 1. MODEST additional font bump (~10% on top of v0.1.8.6) to land
-//    fully comfortable phone reading. v0.1.8.6 was "close to right";
-//    v0.1.8.7 is the last step.
+// All font sizes increased by ~40% for phone readability. Owner reads
+// the share image on iPhone, and the 30px body type on a 1200-wide
+// canvas was too small when the PNG scaled down to phone width. The
+// canvas height grew 2000 → 2400 to accommodate the larger text plus
+// the now-tighter ~250-350-word reflections from v1.3.1.
 //
-//      Body text:        42 → 46 (+10%)
-//      Passage italic:   48 → 52 (+8%)
-//      Header wordmark:  56 → 60 (+7%)
-//      Header tagline:   32 → 34 (+6%)
-//      Date/theme line:  32 → 34 (+6%)
-//      Passage ref:      38 → 42 (+11%)
-//      Footer:           26 → 28 (+8%)
+// Specific bumps:
+//   Body text:        30 → 42 (+40%)
+//   Passage italic:   34 → 48 (+41%)
+//   Header wordmark:  38 → 56 (+47%)
+//   Header tagline:   24 → 32 (+33%)
+//   Date/theme line:  24 → 32 (+33%)
+//   Passage ref:      28 → 38 (+36%)
+//   Footer:           20 → 26 (+30%)
 //
-// 2. Canvas height 2400 → 2700. Two reasons together:
-//    (a) The v1.3.2 prompt loosens the sentences-per-paragraph cap
-//        from 3-5 to 3-7 with an explicit 350-450 word target. Word
-//        budget at the upper end runs ~450 words.
-//    (b) The +10% font bump above adds line-height; 450 words at
-//        the new body size needs more vertical room.
-//
-// 3. Vertical rhythm adjusted slightly:
-//    Header marginBottom:     52 → 56
-//    Date/theme marginBottom: 64 → 68
-//    Passage ref marginBottom:52 → 56
-//    Passage marginBottom:    90 → 96
-//    Rule marginBottom:       52 → 56
-//    Paragraph marginBottom:  34 → 38
-//    Footer bottom offset:    70 → 80
+// Vertical rhythm adjusted to keep proportions:
+//   Root height:           2000 → 2400
+//   Header marginBottom:     40 → 52
+//   Date/theme marginBottom: 50 → 64
+//   Passage ref marginBottom:40 → 52
+//   Passage marginBottom:    70 → 90
+//   Rule marginBottom:       40 → 52
+//   Paragraph marginBottom:  26 → 34
+//   Footer bottom offset:    60 → 70
 //
 // All v0.1.8.3 satori workarounds remain:
 //   - Word-by-word flex spans for inline emphasis (confirmed working).
@@ -66,6 +63,7 @@ const COLORS = {
 };
 
 // Parse *...* segments into a list of { text, emphasis } runs.
+// Mirrors app/page.js renderInline() — same regex, same semantics.
 function parseRuns(text) {
   const runs = [];
   const re = /\*([^*]+)\*/g;
@@ -97,13 +95,15 @@ function splitParagraphs(reflection) {
 }
 
 // Strip API.Bible verse-number brackets [1] [2] etc. from passage text
-// for the share image.
+// for the share image. The live page renders them as superscripts via
+// PassageText; in the image we omit them to keep the typography clean.
 function stripVerseBrackets(text) {
   if (!text) return '';
   return String(text).replace(/\[\d+\]\s*/g, '').replace(/\s+/g, ' ').trim();
 }
 
-// Expand runs into word-tokens for satori inline flow.
+// Expand runs into word-tokens for satori inline flow. Each token is
+// "word " (non-whitespace followed by optional trailing whitespace).
 function tokenizeRunsToWords(runs) {
   const words = [];
   runs.forEach((run, runIdx) => {
@@ -139,7 +139,7 @@ export function ShareImage({
     <div
       style={{
         width: 1200,
-        height: 2700,
+        height: 2400,
         display: 'flex',
         flexDirection: 'column',
         background: `linear-gradient(180deg, ${COLORS.creamTop} 0%, ${COLORS.creamBottom} 100%)`,
@@ -169,16 +169,16 @@ export function ShareImage({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          marginBottom: 56,
+          marginBottom: 52,
           flexShrink: 0,
         }}
       >
-        <div style={{ fontSize: 60, color: COLORS.ink, marginBottom: 10, display: 'flex' }}>
+        <div style={{ fontSize: 56, color: COLORS.ink, marginBottom: 10, display: 'flex' }}>
           Manna
         </div>
         <div
           style={{
-            fontSize: 34,
+            fontSize: 32,
             color: COLORS.inkSoft,
             fontStyle: 'italic',
             marginBottom: 26,
@@ -202,9 +202,9 @@ export function ShareImage({
         style={{
           display: 'flex',
           justifyContent: 'center',
-          fontSize: 34,
+          fontSize: 32,
           color: COLORS.inkSoft,
-          marginBottom: 68,
+          marginBottom: 64,
           flexShrink: 0,
         }}
       >
@@ -216,10 +216,10 @@ export function ShareImage({
         style={{
           display: 'flex',
           justifyContent: 'center',
-          fontSize: 42,
+          fontSize: 38,
           color: COLORS.amber,
           letterSpacing: 3,
-          marginBottom: 56,
+          marginBottom: 52,
           flexShrink: 0,
         }}
       >
@@ -233,10 +233,10 @@ export function ShareImage({
           alignSelf: 'center',
           textAlign: 'center',
           fontStyle: 'italic',
-          fontSize: 52,
+          fontSize: 48,
           lineHeight: 1.4,
           maxWidth: 950,
-          marginBottom: 96,
+          marginBottom: 90,
           color: COLORS.ink,
           flexShrink: 0,
         }}
@@ -252,7 +252,7 @@ export function ShareImage({
           width: 36,
           height: 1,
           backgroundColor: COLORS.amber,
-          marginBottom: 56,
+          marginBottom: 52,
           flexShrink: 0,
         }}
       />
@@ -262,7 +262,7 @@ export function ShareImage({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          fontSize: 46,
+          fontSize: 42,
           lineHeight: 1.5,
           color: COLORS.ink,
           flexShrink: 0,
@@ -277,7 +277,7 @@ export function ShareImage({
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                marginBottom: 38,
+                marginBottom: 34,
                 flexShrink: 0,
               }}
             >
@@ -302,12 +302,12 @@ export function ShareImage({
       <div
         style={{
           position: 'absolute',
-          bottom: 80,
+          bottom: 70,
           left: 0,
           right: 0,
           display: 'flex',
           justifyContent: 'center',
-          fontSize: 28,
+          fontSize: 26,
           fontStyle: 'italic',
           color: COLORS.inkSoft,
         }}
