@@ -1,6 +1,6 @@
 // lib/share-image.jsx
 //
-// The JSX component @vercel/og renders into the share PNG. v0.1.8.8.
+// The JSX component @vercel/og renders into the share PNG. v0.1.8.7.
 //
 // Design — based on the v0.1.8.2 mockup, refined through:
 //   v0.1.8.3   — inline *...* emphasis works (word-by-word flex spans)
@@ -8,36 +8,41 @@
 //   v0.1.8.3.2 — nested-span justify attempt, satori 500, rolled back
 //   v0.1.8.6   — fonts +40%, height 2000 → 2400
 //   v0.1.8.7   — fonts +10% more, height 2400 → 2700
-//   v0.1.8.8   — height 2700 → 3300 only (no font / prompt change)
 //
-// v0.1.8.7 fonts were confirmed correct on iPhone (no further bump
-// wanted). The remaining issue was the canvas — today's 340-word
-// Galatians 2:20 regen overflowed at 2700, and tomorrow's v1.3.2
-// reflections target 350-450 words. 3300 gives ~600px of additional
-// body area, comfortably absorbing the upper end of the new word
-// target with margin to spare.
-//
-// 1200x3300 portrait, warm gradient cream→deeper-cream, centered
+// 1200x2700 portrait, warm gradient cream→deeper-cream, centered
 // header, date and theme line, passage reference, centered passage
 // italic, small centered rule, reflection body with bold-italic
 // emphasis on *...* segments flowing inline word-by-word, footer.
 //
-// v0.1.8.7 → v0.1.8.8 changes:
+// v0.1.8.6 → v0.1.8.7 changes:
 //
-// SINGLE change: canvas height 2700 → 3300.
+// 1. MODEST additional font bump (~10% on top of v0.1.8.6) to land
+//    fully comfortable phone reading. v0.1.8.6 was "close to right";
+//    v0.1.8.7 is the last step.
 //
-// v0.1.8.7 fonts confirmed correct ("size is perfect now"). The
-// remaining overflow on today's 340-word Galatians 2:20 regen at the
-// 2700 canvas told us the canvas was undersized for the new v1.3.2
-// word target. 2700 → 3300 gives ~600px of additional body area:
-//   - Today's 340-word regen fits with comfortable margin.
-//   - Tomorrow's v1.3.2 reflections (350-450 word target) fit at
-//     the upper end of the range with margin to spare.
-//   - Future reflections that lean shorter sit in a slightly tall
-//     canvas; not visually disruptive — the gradient continues, the
-//     footer is pinned absolute to the bottom.
+//      Body text:        42 → 46 (+10%)
+//      Passage italic:   48 → 52 (+8%)
+//      Header wordmark:  56 → 60 (+7%)
+//      Header tagline:   32 → 34 (+6%)
+//      Date/theme line:  32 → 34 (+6%)
+//      Passage ref:      38 → 42 (+11%)
+//      Footer:           26 → 28 (+8%)
 //
-// No font changes. No vertical-rhythm changes. Just the number.
+// 2. Canvas height 2400 → 2700. Two reasons together:
+//    (a) The v1.3.2 prompt loosens the sentences-per-paragraph cap
+//        from 3-5 to 3-7 with an explicit 350-450 word target. Word
+//        budget at the upper end runs ~450 words.
+//    (b) The +10% font bump above adds line-height; 450 words at
+//        the new body size needs more vertical room.
+//
+// 3. Vertical rhythm adjusted slightly:
+//    Header marginBottom:     52 → 56
+//    Date/theme marginBottom: 64 → 68
+//    Passage ref marginBottom:52 → 56
+//    Passage marginBottom:    90 → 96
+//    Rule marginBottom:       52 → 56
+//    Paragraph marginBottom:  34 → 38
+//    Footer bottom offset:    70 → 80
 //
 // All v0.1.8.3 satori workarounds remain:
 //   - Word-by-word flex spans for inline emphasis (confirmed working).
@@ -134,7 +139,7 @@ export function ShareImage({
     <div
       style={{
         width: 1200,
-        height: 3300,
+        height: 2700,
         display: 'flex',
         flexDirection: 'column',
         background: `linear-gradient(180deg, ${COLORS.creamTop} 0%, ${COLORS.creamBottom} 100%)`,
