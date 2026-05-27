@@ -22,14 +22,10 @@
 //   - Aphorism rare and earned (REFINED from v1.2)
 //   - Asterisk grammar (*...*) for emphasis spans (carried from v1.2.1)
 //
-// v1.3.1 (shipped in v0.1.8.6) — two refinements after Galatians 2:20:
-//   - Length tightened: "three to four short paragraphs, each three to
-//     five sentences. Never more than four paragraphs." The original v1.3
-//     reflection ran seven paragraphs; the constant was qualitative and
-//     the model used the extra constants as license to expand.
-//   - Reading level explicitly anchored at 11th–12th grade. Plain,
-//     concrete, sensory English over academic Latinate. Theological
-//     depth stays; the vocabulary that signals depth goes.
+// v0.1.8.5 NOTE — this version restored the v1.2 architecture after a v1.3
+// rewrite collapsed the prompt into a single string and broke the caller
+// contract (Anthropic 400 messages.0.content: Field required). v1.3's voice
+// content is preserved; the structural shape is v1.2's.
 //
 // Returns { promptVersion, system, user } — the contract devotional.js
 // depends on. Do not change this shape.
@@ -37,7 +33,7 @@
 // See STATE_OF_APP.md and PITFALLS.md.
 // =============================================================================
 
-export const PROMPT_VERSION = 'reflection-prompt v1.3.1 (v0.1.8.6)';
+export const PROMPT_VERSION = 'reflection-prompt v1.3 (v0.1.8.5)';
 
 // --- The stretch lens is fenced to exactly three traditions ------------------
 // On a `stretch` morning the reflection is written from a tradition the owner
@@ -151,12 +147,8 @@ function lensAccent(lens, morningIndex) {
 //
 // v1.3 ADDS five constants to the v1.2 baseline: pastoral warmth, Spirit
 // as present reality, union with Christ as present reality, embodied
-// "if true, then..." invitation, and aphorism rare-and-earned.
-//
-// v1.3.1 TIGHTENS the length constant (3-5 sentences per paragraph, max
-// 4 paragraphs) and ADDS an explicit reading-level constant (grade
-// 11-12, concrete English over academic Latinate). All v1.2 constants
-// remain.
+// "if true, then..." invitation, and aphorism rare-and-earned. All v1.2
+// constants remain.
 function systemPrompt(lens, morningIndex) {
   return [
     'You are writing a single morning devotional reflection for Manna — a ' +
@@ -200,20 +192,8 @@ function systemPrompt(lens, morningIndex) {
       "passage touches it, say so plainly. The believer's life is " +
       'hidden with Christ in God. This is the foundation, not a flourish.',
 
-    '- Plain English at roughly an 11th- or 12th-grade reading level. ' +
-      'This is the most important style constant after warmth. Short ' +
-      'sentences. Concrete, sensory words over abstract Latinate ones. ' +
-      'Prefer "the words have been turned over for a long time" to ' +
-      '"the words have been the subject of theological exegesis for ' +
-      'centuries." Prefer "the old way of living" to "the old ' +
-      'repertoire." Prefer "copy Jesus from the outside" to ' +
-      '"approximate Jesus from the outside." The theological depth stays; ' +
-      'the academic register goes. A wise pastor talking to a friend ' +
-      'over coffee — not a seminary lecturer. If a sentence sounds like ' +
-      "it would be at home in a journal article, rewrite it.",
-
-    '- Warm, unhurried, personal. The voice of a friend who has walked ' +
-      'with God a long time.',
+    '- Warm, unhurried, personal. Plain English. The voice of a friend ' +
+      'who has walked with God a long time.',
 
     '- Genuinely meditative. Turn the passage over, sit with it, ask the ' +
       'formation question, connect it gently to an ordinary life. Do not ' +
@@ -242,12 +222,10 @@ function systemPrompt(lens, morningIndex) {
       "a paragraph where the passage's heart shows through, not a " +
       'slogan the reader is meant to remember.',
 
-    '- LENGTH IS A HARD CONSTRAINT. Three to four short paragraphs. ' +
-      'Each paragraph is three to five sentences. Never more than four ' +
-      'paragraphs. Never a paragraph longer than five sentences. This ' +
-      "is the morning's manna: enough for the day, not a feast to be " +
-      'hurried through. If the reflection wants to keep going, that is ' +
-      "the reader's own work to do during the day. Leave room.",
+    '- Short. Three or four short paragraphs at most. Leave room for ' +
+      "the reader's own thought — do not crowd it out. This is the " +
+      "morning's manna: enough for the day, not a feast to be hurried " +
+      'through.',
 
     '- Shape of the close. The reflection may end with EITHER a single ' +
       'short question to carry into the day, OR a short prayer of two ' +
@@ -279,8 +257,7 @@ function systemPrompt(lens, morningIndex) {
       'not summarize. Reflect. Do not write a sermon. Write a still ' +
       'place. Do not over-claim about the reader\'s specific ' +
       'circumstances; you do not know what kind of morning they are ' +
-      'having. Do not use academic vocabulary where plain words exist ' +
-      '(see the reading-level constant above).',
+      'having.',
 
     "The day's lens shifts the accent and vocabulary only. Every " +
       'constant above still holds underneath it.',
@@ -315,9 +292,8 @@ function userMessage({
     passageText,
 
     'Write the reflection on this passage now, following every instruction ' +
-      'in the system prompt and the lens for today. Honor the length ' +
-      'constraint strictly: never more than four paragraphs, never a ' +
-      'paragraph longer than five sentences. Return only the reflection.',
+      'in the system prompt and the lens for today. Return only the ' +
+      'reflection.',
   ].join('\n\n');
 }
 
