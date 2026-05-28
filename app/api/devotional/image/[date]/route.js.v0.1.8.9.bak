@@ -1,22 +1,24 @@
 // app/api/devotional/image/[date]/route.js
 //
 // GET /api/devotional/image/[date]
-// Owner-only. v0.1.8.10 — canvas 1400×3700 → 1600×4400.
+// Owner-only. v0.1.8.9 — canvas 1200×3300 → 1400×3700.
 //
 // Generates a PNG share image of the devotional for the given date.
 // Returns 404 if no devotional exists for that date, 401/403 for auth,
 // image bytes on success.
 //
-// Image is 1600x4400 portrait, warm-gradient background, left-aligned
+// Image is 1400x3700 portrait, warm-gradient background, left-aligned
 // body with bold-italic emphasis on *...* segments. The reflection note
 // (devotional_days.reflection_note) is NEVER read or rendered — it is
 // private to the owner.
 //
-// v0.1.8.9 → v0.1.8.10 change:
-// ImageResponse dimensions 1400×3700 → 1600×4400 to match the canvas
-// in share-image.jsx, sized for a full 450-word v1.3.2 reflection.
-// v0.1.8.9 was sized against a ~340-word reflection and overflowed on
-// the first full-length v1.3.2 morning (Colossians 1:27).
+// v0.1.8.8 → v0.1.8.9 change:
+// ImageResponse dimensions 1200×3300 → 1400×3700 to match the wider
+// + taller share-image.jsx canvas. Width matters because iOS scales
+// PNGs to fit phone width; a wider canvas at the same height means
+// each PNG pixel renders larger on-screen, restoring the v0.1.8.7
+// "size is perfect" reading size that the v0.1.8.8 1:2.75 aspect
+// ratio compressed.
 
 import { ImageResponse } from 'next/og';
 import { NextResponse } from 'next/server';
@@ -169,8 +171,8 @@ export async function GET(request, { params }) {
         />
       ),
       {
-        width: 1600,
-        height: 4400,
+        width: 1400,
+        height: 3700,
         fonts: [
           { name: 'Lora', data: fonts.regular, style: 'normal', weight: 400 },
           { name: 'Lora', data: fonts.italic, style: 'italic', weight: 400 },

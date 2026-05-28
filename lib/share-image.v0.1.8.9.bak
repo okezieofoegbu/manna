@@ -1,6 +1,6 @@
 // lib/share-image.jsx
 //
-// The JSX component @vercel/og renders into the share PNG. v0.1.8.10.
+// The JSX component @vercel/og renders into the share PNG. v0.1.8.9.
 //
 // Design — based on the v0.1.8.2 mockup, refined through:
 //   v0.1.8.3   — inline *...* emphasis works (word-by-word flex spans)
@@ -10,50 +10,53 @@
 //   v0.1.8.7   — fonts +10% more, height 2400 → 2700
 //   v0.1.8.8   — height 2700 → 3300 (still 1200 wide)
 //   v0.1.8.9   — canvas 1200×3300 → 1400×3700, passage maxWidth 1100
-//   v0.1.8.10  — canvas 1400×3700 → 1600×4400, passage maxWidth 1250
 //
-// v0.1.8.10 reasoning:
-// v0.1.8.9's 1400×3700 canvas was sized against the ~340-word
-// Galatians 2:20 regen. But v1.3.2 reliably produces full 350-450
-// word reflections, and the first true v1.3.2 morning (Colossians
-// 1:27) ran the full ~450 words across 5 paragraphs and overflowed
-// the footer. v0.1.8.9 sized for the SHORT end of the word range;
-// v0.1.8.10 sizes for the LONG end so a full 450-word reflection
-// never overflows again.
+// v0.1.8.9 reasoning:
+// At v0.1.8.8 the canvas was 1200×3300 (aspect ratio 1:2.75). When
+// iOS scales this PNG to fit phone width (~400px in inline display),
+// the entire canvas — including every text run — gets proportionally
+// shrunk. The taller the aspect ratio, the more each PNG pixel is
+// visually compressed. The result: text felt smaller on phone than at
+// v0.1.8.7's 1:2.25 aspect ratio, even though the PNG font sizes were
+// unchanged.
 //
-// Following the PITFALLS §24 lesson (phone-rendered size depends on
-// aspect ratio, not just height), both dimensions grow:
-//   - Canvas:    1400×3700 → 1600×4400 (aspect 1:2.75, vs 1:2.64)
-//   - Passage maxWidth: 1100 → 1250, proportional to the wider canvas
-//   - Fonts unchanged — v0.1.8.7 sizes confirmed correct
+// v0.1.8.9 fixes this by extending width as well as height:
+//   - Canvas:    1200×3300 → 1400×3700 (aspect ratio 1:2.64, closer
+//                to v0.1.8.7's 1:2.25)
+//   - Passage maxWidth: 950 → 1100, so the centered passage block
+//                stays proportional to the wider canvas instead of
+//                looking pinched
+//   - Fonts unchanged. The width bump is doing the visual work.
 //
-// Net effect: ~37% more total body area than v0.1.8.9, sized for a
-// full 450-word worst case with margin.
+// Net effect: ~30% more total body area than v0.1.8.8, the v0.1.8.7
+// "size is perfect" reading size is preserved when scaled to phone
+// width, and 350-450 word reflections fit comfortably.
 //
-// 1600x4400 portrait, warm gradient cream→deeper-cream, centered
+// 1400x3700 portrait, warm gradient cream→deeper-cream, centered
 // header, date and theme line, passage reference, centered passage
 // italic, small centered rule, reflection body with bold-italic
 // emphasis on *...* segments flowing inline word-by-word, footer.
 //
-// v0.1.8.9 → v0.1.8.10 changes:
+// v0.1.8.8 → v0.1.8.9 changes:
 //
-// Three coordinated changes, sizing the canvas for the worst case
-// (a full 450-word v1.3.2 reflection):
+// Three coordinated changes addressing the on-phone aspect-ratio
+// problem discovered at v0.1.8.8:
 //
-// 1. Canvas: 1400×3700 → 1600×4400
-//    Width grows +14%, height grows +19%. Aspect ratio 1:2.64 →
-//    1:2.75 (acceptable; the width growth keeps on-phone text size
-//    from shrinking).
+// 1. Canvas: 1200×3300 → 1400×3700
+//    Width grows +17%, height grows +12%. Aspect ratio improves
+//    from 1:2.75 back toward v0.1.8.7's 1:2.25.
 //
-// 2. Passage maxWidth: 1100 → 1250
+// 2. Passage maxWidth: 950 → 1100
 //    Keeps the centered passage italic proportional to the wider
-//    canvas.
+//    canvas. At 950 in a 1400-wide canvas the passage would look
+//    pinched, with too much whitespace on either side.
 //
-// 3. Fonts UNCHANGED. v0.1.8.7 sizes confirmed correct.
+// 3. Fonts UNCHANGED. v0.1.8.7 sizes are confirmed correct; the
+//    width bump is doing the visual work of restoring the v0.1.8.7
+//    reading size on phone.
 //
 // Vertical rhythm unchanged. Padding unchanged. Everything else from
-// v0.1.8.7/8/9 unchanged. This sizes for a full 450-word reflection
-// with margin so the canvas does not need revisiting per-reflection.
+// v0.1.8.7/v0.1.8.8 unchanged.
 //
 // All v0.1.8.3 satori workarounds remain:
 //   - Word-by-word flex spans for inline emphasis (confirmed working).
@@ -149,8 +152,8 @@ export function ShareImage({
   return (
     <div
       style={{
-        width: 1600,
-        height: 4400,
+        width: 1400,
+        height: 3700,
         display: 'flex',
         flexDirection: 'column',
         background: `linear-gradient(180deg, ${COLORS.creamTop} 0%, ${COLORS.creamBottom} 100%)`,
@@ -246,7 +249,7 @@ export function ShareImage({
           fontStyle: 'italic',
           fontSize: 52,
           lineHeight: 1.4,
-          maxWidth: 1250,
+          maxWidth: 1100,
           marginBottom: 96,
           color: COLORS.ink,
           flexShrink: 0,
